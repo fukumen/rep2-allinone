@@ -1,0 +1,114 @@
+name: Build and Publish Linux Repositories
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [p2-php-update]
+
+jobs:
+  build_and_publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Log Upstream Trigger Info
+        if: github.event.client_payload.run_id
+        run: |
+          echo "Triggered by p2-php run: https://github.com/fukumen/p2-php/actions/runs/${{ github.event.client_payload.run_id }}"
+          echo "Source SHA: ${{ github.event.client_payload.sha }}"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download existing repository
+        continue-on-error: true
+        run: |
+          git clone --depth 1 -b gh-pages https://github.com/${{ github.repository }}.git repo
+          rm -rf repo/.git
+
+      - name: Install APT and RPM Repository Tools
+        run: sudo apt-get update && sudo apt-get install -y dpkg-dev apt-utils rpm createrepo-c
+
+      - name: Build Debian and RPM Packages
+        run: |
+          make clean
+          make ARCH=amd64 deb
+          make ARCH=arm64 deb
+          make ARCH=amd64 rpm
+          make ARCH=arm64 rpm
+
+      - name: Create APT and RPM Repository structures
+        run: |
+          # Import GPG key if available
+          if [ -n "${{ secrets.GPG_PRIVATE_KEY }}" ]; then
+            echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+            gpg --armor --export fukumen@gmail.com > fukumen.gpg.key
+            
+            # Setup RPM macros for signing
+            echo "%_signature gpg" > ~/.rpmmacros
+            echo "%_gpg_name fukumen@gmail.com" >> ~/.rpmmacros
+            
+            # Sign RPM packages
+            rpm --addsign dist/*.rpm || echo "Warning: RPM signing failed or skipped"
+          else
+            echo "Warning: GPG_PRIVATE_KEY is not set. Packages will be unsigned."
+          fi
+
+          # --- APT Repository (.deb) ---
+          mkdir -p repo/apt
+          cp dist/*.deb repo/apt/
+          [ -f fukumen.gpg.key ] && cp fukumen.gpg.key repo/apt/
+          
+          # Prune old DEB packages (keep latest 5 per architecture, sorted by timestamp YYYYMMDDHHMM in filename)
+          # Filename format: rep2-allinone_VERSION+TIMESTAMP_ARCH.deb
+          for arch in amd64 arm64; do
+            ls -1 repo/apt/rep2-allinone_*_${arch}.deb 2>/dev/null | \
+              while read -r file; do
+                ts=$(echo "$file" | grep -oP '\+\K\d{12}')
+                echo "$ts $file"
+              done | sort -rn | tail -n +6 | awk '{print $2}' | xargs -r rm -v -f
+          done
+
+          cd repo/apt
+          dpkg-scanpackages . /dev/null > Packages
+          gzip -9kf Packages
+          apt-ftparchive release . > Release
+          
+          if [ -n "${{ secrets.GPG_PRIVATE_KEY }}" ]; then
+            gpg --batch --pinentry-mode loopback --yes -abs -u fukumen@gmail.com -o Release.gpg Release
+            gpg --batch --pinentry-mode loopback --yes -abs -u fukumen@gmail.com --clearsign -o InRelease Release
+          fi
+          cd ../../
+
+          # --- RPM Repository (.rpm) ---
+          mkdir -p repo/rpm
+          cp dist/*.rpm repo/rpm/ 2>/dev/null || true
+          [ -f fukumen.gpg.key ] && cp fukumen.gpg.key repo/rpm/
+          
+          # Prune old RPM packages (keep latest 5 per architecture, sorted by timestamp YYYYMMDDHHMM in filename)
+          # Filename format: rep2-allinone-VERSION.caddyVERSION.TIMESTAMP.ARCH.rpm
+          for arch in x86_64 aarch64; do
+            ls -1 repo/rpm/rep2-allinone-*.${arch}.rpm 2>/dev/null | \
+              while read -r file; do
+                ts=$(echo "$file" | grep -oP '\.\K\d{12}(?=\.'${arch}'\.rpm)')
+                echo "$ts $file"
+              done | sort -rn | tail -n +6 | awk '{print $2}' | xargs -r rm -v -f
+          done
+
+          cd repo/rpm
+          createrepo_c .
+          
+          # Sign RPM repository metadata
+          if [ -n "${{ secrets.GPG_PRIVATE_KEY }}" ]; then
+            gpg --detach-sign --armor -u fukumen@gmail.com repodata/repomd.xml
+          fi
+          cd ../../
+
+      - name: Deploy to GitHub Pages (gh-pages branch)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./repo
+          keep_files: false
+          commit_message: "Deploy repositories (triggered by p2-php: ${{ github.event.client_payload.sha || 'manual' }})"

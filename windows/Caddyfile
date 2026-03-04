@@ -1,0 +1,16 @@
+{
+    admin off
+}
+
+:10088 {
+    root * p2-php/rep2
+    php_fastcgi 127.0.0.1:9000 {
+        resolve_root_symlink false
+    }
+    file_server
+
+    @js_files {
+        path *.js
+    }
+    header @js_files Content-Type "application/javascript; charset=Shift_JIS"
+}

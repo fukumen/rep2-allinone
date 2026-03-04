@@ -1,0 +1,20 @@
+--- a/conf/conf.inc.php
++++ b/conf/conf.inc.php
+@@ -145,3 +145,3 @@
+ 
+-    define('P2_CONFIG_DIR', __DIR__);
++    define('P2_CONFIG_DIR', '/opt/rep2-allinone/p2-php/conf');
+ 
+--- a/conf/conf_admin_ex.inc.php
++++ b/conf/conf_admin_ex.inc.php
+@@ -103,3 +103,3 @@
+ // ImageCache2（off:0, PCのみ:1, 携帯のみ:2, 両方:3）
+-$_conf['expack.ic2.enabled'] = 0; // (0)
++$_conf['expack.ic2.enabled'] = 3; // (0)
+
+--- a/conf/conf_ic2.inc.php
++++ b/conf/conf_ic2.inc.php
+@@ -20,3 +20,3 @@
+ // 注2: MySQL,PosrgreSQLでは予めデータベースを作っておく。
+-$_conf['expack.ic2.general.dsn'] = "";
++$_conf['expack.ic2.general.dsn'] = 'sqlite:' . $_conf['db_dir'] . '/imgcache.sqlite';

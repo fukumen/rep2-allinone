@@ -1,0 +1,13 @@
+:10088 {
+    log {
+        output stderr
+    }
+    root * HOME_DIR/.rep2-allinone/p2-php/rep2
+    php_fastcgi 127.0.0.1:9000
+    file_server
+
+    @js_files {
+        path *.js
+    }
+    header @js_files Content-Type "application/javascript; charset=Shift_JIS"
+}

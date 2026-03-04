@@ -1,0 +1,32 @@
+#!/bin/sh
+
+HERE=$(cd "$(dirname "$0")" && pwd)
+cd "$HERE"
+
+DATA_BASE_DIR="$HERE/var"
+CONF_DIR="$HERE/conf"
+
+export XDG_CONFIG_HOME="$DATA_BASE_DIR/caddy_config"
+export XDG_DATA_HOME="$DATA_BASE_DIR/caddy_data"
+
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$DATA_BASE_DIR/conf" "$DATA_BASE_DIR/data"
+
+cp -Rn "$HERE/p2-php/conf.orig/"* "$DATA_BASE_DIR/conf/" 2>/dev/null
+cp -Rn "$HERE/p2-php/data.orig/"* "$DATA_BASE_DIR/data/" 2>/dev/null
+
+[ -f "$CONF_DIR/secrets.conf" ] && export $(grep -v '^#' "$CONF_DIR/secrets.conf" | xargs)
+
+CADDY_BIN="./bin/caddy"
+if [ -x "$DATA_BASE_DIR/custom-caddy" ]; then
+    CADDY_BIN="$DATA_BASE_DIR/custom-caddy"
+fi
+
+./bin/php "$HERE/p2-php/scripts/ic2.php" setup
+
+./bin/php-fpm -y "$CONF_DIR/php-fpm.conf" -F &
+PHP_PID=$!
+
+trap "kill $PHP_PID 2>/dev/null; exit" INT TERM EXIT
+
+echo "Starting Caddy server..."
+exec $CADDY_BIN run --config "$CONF_DIR/Caddyfile" --adapter caddyfile
