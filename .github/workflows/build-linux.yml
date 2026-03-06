@@ -48,11 +48,12 @@ jobs:
           # Import GPG key if available
           if [ -n "${{ secrets.GPG_PRIVATE_KEY }}" ]; then
             echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
-            gpg --armor --export fukumen@gmail.com > fukumen.gpg.key
+            gpg --batch --armor --export fukumen@gmail.com > fukumen.gpg.key
             
             # Setup RPM macros for signing
             echo "%_signature gpg" > ~/.rpmmacros
             echo "%_gpg_name fukumen@gmail.com" >> ~/.rpmmacros
+            echo "%__gpg_sign_cmd %{__gpg} gpg --batch --pinentry-mode loopback --no-armor %{?_gpg_digest_algo:--digest-algo %{_gpg_digest_algo}} --no-secmem-warning -u \"%{_gpg_name}\" -sbo %{__signature_filename} %{__plaintext_filename}" >> ~/.rpmmacros
             
             # Sign RPM packages
             rpm --addsign dist/*.rpm || echo "Warning: RPM signing failed or skipped"
@@ -76,7 +77,7 @@ jobs:
           done
 
           cd repo/apt
-          dpkg-scanpackages . /dev/null > Packages
+          dpkg-scanpackages --multiversion . /dev/null > Packages
           gzip -9kf Packages
           apt-ftparchive release . > Release
           
@@ -106,7 +107,7 @@ jobs:
           
           # Sign RPM repository metadata
           if [ -n "${{ secrets.GPG_PRIVATE_KEY }}" ]; then
-            gpg --detach-sign --armor -u fukumen@gmail.com repodata/repomd.xml
+            gpg --batch --pinentry-mode loopback --yes --detach-sign --armor -u fukumen@gmail.com repodata/repomd.xml
           fi
           cd ../../
 
