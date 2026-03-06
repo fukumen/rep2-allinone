@@ -33,7 +33,7 @@ jobs:
           php-version: '8.4'
 
       - name: Install APT and RPM Repository Tools
-        run: sudo apt-get update && sudo apt-get install -y dpkg-dev apt-utils rpm createrepo-c
+        run: sudo apt-get update && sudo apt-get install -y dpkg-dev apt-utils rpm createrepo-c tree
 
       - name: Build Debian and RPM Packages
         run: |
@@ -110,6 +110,13 @@ jobs:
           fi
           cd ../../
 
+      - name: Generate HTML Indexes
+        run: |
+          cd repo
+          tree -H '.' -L 2 --noreport --charset utf-8 -T "rep2-allinone Packages" -o index.html
+          cd apt && tree -H '.' -L 1 --noreport --charset utf-8 -T "rep2-allinone APT Repository" -o index.html && cd ..
+          cd rpm && tree -H '.' -L 1 --noreport --charset utf-8 -T "rep2-allinone RPM Repository" -o index.html && cd ..
+
       - name: Deploy to GitHub Pages (gh-pages branch)
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -117,3 +124,15 @@ jobs:
           publish_dir: ./repo
           keep_files: false
           commit_message: "Deploy repositories (triggered by p2-php: ${{ github.event.client_payload.sha || 'manual' }})"
+
+      - name: Publish to GitHub Releases (latest)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 既存の latest リリースとタグを削除 (失敗しても無視)
+          gh release delete latest -y --cleanup-tag || true
+          
+          # 新しく latest リリースを作成してアセットをアップロード
+          gh release create latest dist/*.deb dist/*.rpm \
+            --title "Latest Build" \
+            --notes "Automated build triggered by repository updates."
