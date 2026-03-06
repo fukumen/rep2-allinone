@@ -27,14 +27,11 @@ if not exist "%DATA_BASE_DIR%\data\db" (
 :: 初期セットアップ
 "%HERE%bin\php.exe" -c "%CONF_DIR%\php.ini" "%HERE%p2-php\scripts\ic2.php" setup
 
-:: FastCGI の安定性のために MaxRequests を設定
-set PHP_FCGI_MAX_REQUESTS=1000
-
-echo Starting PHP-CGI...
-start "rep2-php-cgi" /B "%HERE%bin\php-cgi.exe" -b 127.0.0.1:9000 -c "%CONF_DIR%\php.ini"
+echo Starting PHP FastCGI server...
+start "rep2-php-server" /B "%HERE%bin\php-cgi.exe" -b 127.0.0.1:9000 -c "%CONF_DIR%\php.ini"
 
 echo Starting Caddy server...
 "%HERE%bin\caddy.exe" run --config "%CONF_DIR%\Caddyfile" --adapter caddyfile
 
-echo Stopping PHP-CGI...
-taskkill /F /IM php-cgi.exe /T >nul 2>&1
+echo Stopping PHP server...
+taskkill /F /FI "WINDOWTITLE eq rep2-php-server" /T >nul 2>&1

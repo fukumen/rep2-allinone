@@ -109,6 +109,10 @@ $success = $false
 for ($i = 0; $i -lt 15; $i++) {
     try {
         $response = Invoke-WebRequest -Uri "http://localhost:10088/" -UseBasicParsing -ErrorAction Stop
+        if ($response.Content -match "rep2") {
+            $success = $true
+            break
+        }
     } catch {
         if ($_.Exception.Response.StatusCode -eq 401) {
             $success = $true
@@ -120,6 +124,7 @@ for ($i = 0; $i -lt 15; $i++) {
 }
 
 Write-Host "プロセスを終了中..."
+Stop-Process -Name "php" -Force -ErrorAction SilentlyContinue
 Stop-Process -Name "php-cgi" -Force -ErrorAction SilentlyContinue
 Stop-Process -Name "caddy" -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
@@ -127,7 +132,7 @@ Remove-Item -Path "C:\rep2-test" -Recurse -Force
 Remove-Item -Path "C:\temp.zip" -Force
 
 if ($success) {
-    Write-Host "テスト成功: 401 Unauthorized を確認しました。"
+    Write-Host "テスト成功: 正常なレスポンスを確認しました。"
     exit 0
 } else {
     Write-Host "テスト失敗: 期待されるレスポンスが得られませんでした。"

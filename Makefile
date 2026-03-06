@@ -1,22 +1,32 @@
 BASE_VERSION = 1.0.0
-PHP_VERSION = 8.5.3
+PHP_VERSION_DEFAULT = 8.5.3
+PHP_VERSION_WINDOWS = 8.5.1
+
 CADDY_VERSION = 2.9.1
 COMPOSER_VERSION = 2.9.4
 
 REP2_REPO = https://github.com/fukumen/p2-php.git
 REP2_BRANCH = php8-merge-mbstring
 
+ARCH ?= amd64
+OS ?= linux
+
+ifeq ($(OS),windows)
+PHP_VERSION = $(PHP_VERSION_WINDOWS)
+PHP_URL = https://windows.php.net/downloads/releases
+else
+PHP_VERSION = $(PHP_VERSION_DEFAULT)
+PHP_URL = https://dl.static-php.dev/static-php-cli/common
+endif
+
 COMMIT_DATE = $(shell [ -d dist/p2-php ] && cd dist/p2-php && TZ=Asia/Tokyo git log -1 --format="%cd" --date=format-local:"%Y%m%d%H%M" || echo "unknown")
 DEB_VERSION = $(BASE_VERSION)-php$(PHP_VERSION)-caddy$(CADDY_VERSION)+$(COMMIT_DATE)
 RPM_VERSION = $(BASE_VERSION)
 RPM_RELEASE = php$(PHP_VERSION).caddy$(CADDY_VERSION).$(COMMIT_DATE)
 
-ARCH ?= amd64
-OS ?= linux
 PKG_NAME = rep2-allinone
 DEB_DIR = dist/$(PKG_NAME)_$(DEB_VERSION)_$(ARCH)
 
-PHP_URL = https://dl.static-php.dev/static-php-cli/common
 CADDY_URL = https://github.com/caddyserver/caddy/releases/download
 
 ifeq ($(OS),macos)
@@ -47,16 +57,23 @@ ifeq ($(OS),windows)
 PHP_FPM_EXT = zip
 PHP_CLI_EXT = zip
 CADDY_EXT = zip
-PHP_FPM_PREFIX = cgi
 else
 PHP_FPM_EXT = tar.gz
 PHP_CLI_EXT = tar.gz
 CADDY_EXT = tar.gz
-PHP_FPM_PREFIX = fpm
 endif
 
-PHP_FPM_TGZ = $(DOWNLOADS_DIR)/php-$(PHP_VERSION)-$(PHP_FPM_PREFIX)-$(PHP_OS)-$(PHP_ARCH).$(PHP_FPM_EXT)
-PHP_CLI_TGZ = $(DOWNLOADS_DIR)/php-$(PHP_VERSION)-cli-$(PHP_OS)-$(PHP_ARCH).$(PHP_CLI_EXT)
+ifeq ($(OS),windows)
+PHP_CLI_FILE = php-$(PHP_VERSION)-nts-Win32-vs17-x64.$(PHP_CLI_EXT)
+else
+PHP_FPM_FILE = php-$(PHP_VERSION)-fpm-$(PHP_OS)-$(PHP_ARCH).$(PHP_FPM_EXT)
+PHP_CLI_FILE = php-$(PHP_VERSION)-cli-$(PHP_OS)-$(PHP_ARCH).$(PHP_CLI_EXT)
+endif
+
+ifneq ($(OS),windows)
+PHP_FPM_TGZ = $(DOWNLOADS_DIR)/$(PHP_FPM_FILE)
+endif
+PHP_CLI_TGZ = $(DOWNLOADS_DIR)/$(PHP_CLI_FILE)
 
 ifeq ($(OS),macos)
 CADDY_TGZ   = $(DOWNLOADS_DIR)/caddy_$(CADDY_VERSION)_mac_$(CADDY_ARCH).$(CADDY_EXT)
@@ -71,28 +88,31 @@ RPM_DIR = dist/rpmbuild
 .PHONY: all build install deb rpm macos build-macos windows build-windows clean dist-clean update-php-checksums
 
 update-php-checksums:
-	@echo "Updating php-checksums.txt for PHP $(PHP_VERSION)..."
+	@echo "Updating php-checksums.txt..."
 	@> php-checksums.tmp
 	@for os in linux macos windows; do \
-		for arch in x86_64 aarch64; do \
-			if [ "$$os" = "windows" ]; then \
-				types="cli cgi"; \
-				ext="zip"; \
-			else \
-				types="cli fpm"; \
-				ext="tar.gz"; \
-			fi; \
-			for type in $$types; do \
-				file="php-$(PHP_VERSION)-$$type-$$os-$$arch.$$ext"; \
-				url="$(PHP_URL)/$$file"; \
-				if curl -sI "$$url" | head -n 1 | grep -qE "200|302"; then \
-					echo "Fetching checksum for $$file..."; \
-					hash=$$(curl -sL "$$url" | (sha256sum 2>/dev/null || shasum -a 256) | awk '{print $$1}'); \
-					echo "$$hash  $$file" >> php-checksums.tmp; \
-				else \
-					echo "Skipping $$file (Not Found)"; \
-				fi; \
+		if [ "$$os" = "windows" ]; then \
+			ver="$(PHP_VERSION_WINDOWS)"; \
+			url_base="https://windows.php.net/downloads/releases"; \
+			files="php-$$ver-nts-Win32-vs17-x64.zip"; \
+		else \
+			ver="$(PHP_VERSION_DEFAULT)"; \
+			url_base="https://dl.static-php.dev/static-php-cli/common"; \
+			if [ "$$os" = "macos" ]; then os_name="macos"; else os_name="linux"; fi; \
+			files=""; \
+			for arch in x86_64 aarch64; do \
+				files="$$files php-$$ver-cli-$$os_name-$$arch.tar.gz php-$$ver-fpm-$$os_name-$$arch.tar.gz"; \
 			done; \
+		fi; \
+		for file in $$files; do \
+			url="$$url_base/$$file"; \
+			if curl -sIL "$$url" | grep -q "HTTP/.* 200"; then \
+				echo "Fetching checksum for $$file from $$url..."; \
+				hash=$$(curl -sL "$$url" | (sha256sum 2>/dev/null || shasum -a 256) | awk '{print $$1}'); \
+				echo "$$hash  $$file" >> php-checksums.tmp; \
+			else \
+				echo "Skipping $$file (Not Found at $$url)"; \
+			fi; \
 		done; \
 	done
 	@mv php-checksums.tmp php-checksums.txt
@@ -103,19 +123,21 @@ MACOS_DIR = dist/macos
 
 all: build
 
-build: dist/p2-php $(BIN_DIR)/php-fpm $(BIN_DIR)/php $(BIN_DIR)/caddy
+build: dist/p2-php $(if $(filter-out windows,$(OS)),$(BIN_DIR)/php-fpm) $(BIN_DIR)/php $(BIN_DIR)/caddy
 
+ifneq ($(OS),windows)
 $(PHP_FPM_TGZ):
 	mkdir -p $(DOWNLOADS_DIR)
-	curl -fL -o $@.tmp "$(PHP_URL)/php-$(PHP_VERSION)-$(PHP_FPM_PREFIX)-$(PHP_OS)-$(PHP_ARCH).$(PHP_FPM_EXT)"
+	curl -fL -o $@.tmp "$(PHP_URL)/$(PHP_FPM_FILE)"
 	@HASH=$$(grep "$(notdir $@)" php-checksums.txt | awk '{print $$1}'); \
 	if [ -z "$$HASH" ]; then echo "Error: Checksum not found for $(notdir $@)" >&2; exit 1; fi; \
 	echo "$$HASH  $@.tmp" | (sha256sum -c || shasum -a 256 -c)
 	mv $@.tmp $@
+endif
 
 $(PHP_CLI_TGZ):
 	mkdir -p $(DOWNLOADS_DIR)
-	curl -fL -o $@.tmp "$(PHP_URL)/php-$(PHP_VERSION)-cli-$(PHP_OS)-$(PHP_ARCH).$(PHP_CLI_EXT)"
+	curl -fL -o $@.tmp "$(PHP_URL)/$(PHP_CLI_FILE)"
 	@HASH=$$(grep "$(notdir $@)" php-checksums.txt | awk '{print $$1}'); \
 	if [ -z "$$HASH" ]; then echo "Error: Checksum not found for $(notdir $@)" >&2; exit 1; fi; \
 	echo "$$HASH  $@.tmp" | (sha256sum -c || shasum -a 256 -c)
@@ -137,14 +159,15 @@ $(CADDY_TGZ):
 	mv $@.tmp $@
 
 ifeq ($(OS),windows)
-$(BIN_DIR)/php-fpm: $(PHP_FPM_TGZ)
+$(BIN_DIR)/php-fpm: $(PHP_CLI_TGZ)
 	mkdir -p $(BIN_DIR)
-	unzip -q -o $< php-cgi.exe -d $(BIN_DIR) || unzip -q -o $< -d $(BIN_DIR)
+	unzip -q -o $< php-cgi.exe -d $(BIN_DIR)
 	touch $@
 
 $(BIN_DIR)/php: $(PHP_CLI_TGZ)
 	mkdir -p $(BIN_DIR)
-	unzip -q -o $< php.exe -d $(BIN_DIR) || unzip -q -o $< -d $(BIN_DIR)
+	unzip -q -o $< php.exe php8.dll -d $(BIN_DIR)
+	unzip -q -o $< "ext/*" -d $(BIN_DIR)
 	touch $@
 
 $(BIN_DIR)/caddy: $(CADDY_TGZ)

@@ -4,9 +4,7 @@
 
 :10088 {
     root * p2-php/rep2
-    php_fastcgi 127.0.0.1:9000 {
-        resolve_root_symlink false
-    }
+    php_fastcgi 127.0.0.1:9000
     file_server
 
     @js_files {
