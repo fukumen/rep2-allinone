@@ -13,3 +13,48 @@ Priority: optional
 Description: rep2-allinone (p2-php) with built-in Caddy and PHP-FPM.
  A standalone package for rep2 using a dedicated user.
 
+Package: rep2-allinone
+Version: 1.0.0-php8.5.3-caddy2.9.1+202603062147
+Architecture: arm64
+Maintainer: fukumen <fukumen@gmail.com>
+Installed-Size: 79460
+Filename: ./rep2-allinone_1.0.0-php8.5.3-caddy2.9.1+202603062147_arm64.deb
+Size: 35029158
+MD5sum: b59e248143d34b7579984a884de12624
+SHA1: 78ba39992275846423abcbc49125630c25c06916
+SHA256: 796d62f68ffa3102f8e214d7634f3c914703bd73ea7418c356d3ac3f4f3e1506
+Section: web
+Priority: optional
+Description: rep2-allinone (p2-php) with built-in Caddy and PHP-FPM.
+ A standalone package for rep2 using a dedicated user.
+
+Package: rep2-allinone
+Version: 1.0.0-php8.5.3-caddy2.9.1+202603062213
+Architecture: amd64
+Maintainer: fukumen <fukumen@gmail.com>
+Installed-Size: 79896
+Filename: ./rep2-allinone_1.0.0-php8.5.3-caddy2.9.1+202603062213_amd64.deb
+Size: 35468900
+MD5sum: 294d3b9528a89fdbc07298ed31f461c8
+SHA1: 41bd4c0561246719a6c7a5e599a2277c0d36a34e
+SHA256: b045f30aaf354e219774dcef286c52d022a135a38e6b3a2c002dc081ce790dd9
+Section: web
+Priority: optional
+Description: rep2-allinone (p2-php) with built-in Caddy and PHP-FPM.
+ A standalone package for rep2 using a dedicated user.
+
+Package: rep2-allinone
+Version: 1.0.0-php8.5.3-caddy2.9.1+202603062213
+Architecture: arm64
+Maintainer: fukumen <fukumen@gmail.com>
+Installed-Size: 79460
+Filename: ./rep2-allinone_1.0.0-php8.5.3-caddy2.9.1+202603062213_arm64.deb
+Size: 35029838
+MD5sum: d9cd518106cb61889f1945382008641a
+SHA1: 7734a5c47fadab496fc31f03c66cf51ba8e024ae
+SHA256: 8f82ba9cc4bcac97505c87801d1dec2448d35e654ed698112af390832ee1bd3e
+Section: web
+Priority: optional
+Description: rep2-allinone (p2-php) with built-in Caddy and PHP-FPM.
+ A standalone package for rep2 using a dedicated user.
+
