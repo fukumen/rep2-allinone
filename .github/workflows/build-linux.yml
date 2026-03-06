@@ -27,6 +27,11 @@ jobs:
           git clone --depth 1 -b gh-pages https://github.com/${{ github.repository }}.git repo
           rm -rf repo/.git
 
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+
       - name: Install APT and RPM Repository Tools
         run: sudo apt-get update && sudo apt-get install -y dpkg-dev apt-utils rpm createrepo-c
 
