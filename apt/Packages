@@ -1,0 +1,15 @@
+Package: rep2-allinone
+Version: 1.0.0-php8.5.3-caddy2.9.1+202603062147
+Architecture: amd64
+Maintainer: fukumen <fukumen@gmail.com>
+Installed-Size: 79896
+Filename: ./rep2-allinone_1.0.0-php8.5.3-caddy2.9.1+202603062147_amd64.deb
+Size: 35468758
+MD5sum: e9a2ae2e03bc8cc8e26ba239ef222b21
+SHA1: decd2b3632cbcd154350ed6772937c139932bcca
+SHA256: 24cc6c7f1dc886783c308b6675ac86bfa9875c1508a89ed9af13c8af40f1acd0
+Section: web
+Priority: optional
+Description: rep2-allinone (p2-php) with built-in Caddy and PHP-FPM.
+ A standalone package for rep2 using a dedicated user.
+

@@ -1,0 +1,17 @@
+Date: Fri, 06 Mar 2026 12:50:35 +0000
+MD5Sum:
+ df52c467e6ce3d3519d95d473d1605b9              561 Packages
+ 36bffe82ee2eb1909db8a276d00739fc              404 Packages.gz
+ 57455baa16704997db8985f8a04b5e2e               38 Release
+SHA1:
+ b721466730fd6287ab0519e64b812b435b9af714              561 Packages
+ da5db1e0536e4490efb3c1f040af5c94ee7f3feb              404 Packages.gz
+ f43bf9b4aec8207e309adb37563aae6ef22239ac               38 Release
+SHA256:
+ c25223cf1388989f2e6abce2d0995aae5220b0d0bcb6810c11de2944cc48787d              561 Packages
+ e04575d0038aa37c30780a7397fe2bf0aa51164aa3ed5fcdde51e5ee56cdc219              404 Packages.gz
+ 65244345e63f9de3fe67ec089200a51d87b1f02d006590efce4fb8d586678fea               38 Release
+SHA512:
+ 56a2db90d1a71eab4b8ee2f8506a6fdce417d19a37e8cb0e16104b7bbdf975c333504e0973f85609c4b61e52cfd3cac8dd90697c78b55641fdaee50679f96cb7              561 Packages
+ 3cd278ed6bf2409adee5c9043c9e6db2fe5a19eaa3b5b28a4034f37530e3623ec55c397c53e3268b9bd3909f19648f0da4e886187adb4cfa8c8fe76d16891f09              404 Packages.gz
+ eac37f41fde47fcc210378f6b2a2d5743c6bc8ce55609fd8b6669c2a35f3a5451317f55b3a4836de722b4387bcda50d5566745febf07cf7ddb652d425cfb5b23               38 Release
