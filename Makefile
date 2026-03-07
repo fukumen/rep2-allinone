@@ -1,4 +1,4 @@
-BASE_VERSION = 1.0.0
+BASE_VERSION = 1.0.1
 PHP_VERSION_DEFAULT = 8.5.3
 PHP_VERSION_WINDOWS = 8.5.1
 
@@ -88,11 +88,17 @@ CACERT_PEM = $(DOWNLOADS_DIR)/cacert.pem
 
 RPM_DIR = dist/rpmbuild
 
+PHP_CHECKSUMS = dist/php-checksums.txt
+
 .PHONY: all build install deb rpm macos build-macos windows build-windows clean dist-clean update-php-checksums
 
+$(PHP_CHECKSUMS):
+	$(MAKE) update-php-checksums
+
 update-php-checksums:
-	@echo "Updating php-checksums.txt..."
-	@> php-checksums.tmp
+	@echo "Updating $(PHP_CHECKSUMS)..."
+	@mkdir -p dist
+	@> $(PHP_CHECKSUMS).tmp
 	@for os in linux macos windows; do \
 		if [ "$$os" = "windows" ]; then \
 			ver="$(PHP_VERSION_WINDOWS)"; \
@@ -112,14 +118,14 @@ update-php-checksums:
 			if curl -sIL "$$url" | grep -q "HTTP/.* 200"; then \
 				echo "Fetching checksum for $$file from $$url..."; \
 				hash=$$(curl -sL "$$url" | (sha256sum 2>/dev/null || shasum -a 256) | awk '{print $$1}'); \
-				echo "$$hash  $$file" >> php-checksums.tmp; \
+				echo "$$hash  $$file" >> $(PHP_CHECKSUMS).tmp; \
 			else \
 				echo "Skipping $$file (Not Found at $$url)"; \
 			fi; \
 		done; \
 	done
-	@mv php-checksums.tmp php-checksums.txt
-	@echo "php-checksums.txt updated successfully."
+	@mv $(PHP_CHECKSUMS).tmp $(PHP_CHECKSUMS)
+	@echo "$(PHP_CHECKSUMS) updated successfully."
 
 WINDOWS_DIR = dist/windows
 MACOS_DIR = dist/macos
@@ -129,19 +135,19 @@ all: build
 build: dist/p2-php $(BIN_DIR)/php-fpm $(BIN_DIR)/php $(BIN_DIR)/caddy
 
 ifneq ($(OS),windows)
-$(PHP_FPM_TGZ):
+$(PHP_FPM_TGZ): $(PHP_CHECKSUMS)
 	mkdir -p $(DOWNLOADS_DIR)
 	curl -fL -o $@.tmp "$(PHP_URL)/$(PHP_FPM_FILE)"
-	@HASH=$$(grep "$(notdir $@)" php-checksums.txt | awk '{print $$1}'); \
+	@HASH=$$(grep "$(notdir $@)" $(PHP_CHECKSUMS) | awk '{print $$1}'); \
 	if [ -z "$$HASH" ]; then echo "Error: Checksum not found for $(notdir $@)" >&2; exit 1; fi; \
 	echo "$$HASH  $@.tmp" | (sha256sum -c || shasum -a 256 -c)
 	mv $@.tmp $@
 endif
 
-$(PHP_CLI_TGZ):
+$(PHP_CLI_TGZ): $(PHP_CHECKSUMS)
 	mkdir -p $(DOWNLOADS_DIR)
 	curl -fL -o $@.tmp "$(PHP_URL)/$(PHP_CLI_FILE)"
-	@HASH=$$(grep "$(notdir $@)" php-checksums.txt | awk '{print $$1}'); \
+	@HASH=$$(grep "$(notdir $@)" $(PHP_CHECKSUMS) | awk '{print $$1}'); \
 	if [ -z "$$HASH" ]; then echo "Error: Checksum not found for $(notdir $@)" >&2; exit 1; fi; \
 	echo "$$HASH  $@.tmp" | (sha256sum -c || shasum -a 256 -c)
 	mv $@.tmp $@
@@ -247,7 +253,7 @@ deb: build
 	sed -i "s/^Architecture:.*/Architecture: $(ARCH)/" $(DEB_DIR)/DEBIAN/control; \
 	sed -i "s/^Description:/Installed-Size: $$SIZE\nDescription:/" $(DEB_DIR)/DEBIAN/control
 	
-	dpkg-deb --root-owner-group --build $(DEB_DIR)
+	dpkg-deb -Zxz --root-owner-group --build $(DEB_DIR)
 
 rpm: build
 	rm -rf $(RPM_DIR)
@@ -259,6 +265,7 @@ rpm: build
 		--define "_target_cpu $(RPM_ARCH)" \
 		--define "_orig_arch $(ARCH)" \
 		--define "_workspace $$(pwd)" \
+		--define "_binary_payload w9.xzdio" \
 		linux/rpm/rep2-allinone.spec
 	find $(RPM_DIR)/RPMS -name "*.rpm" -exec cp {} dist/ \;
 

@@ -1,4 +1,4 @@
-name: Build and Publish Linux Repositories
+name: Build and Publish Packages
 
 on:
   workflow_dispatch:
@@ -33,15 +33,17 @@ jobs:
           php-version: '8.4'
 
       - name: Install APT and RPM Repository Tools
-        run: sudo apt-get update && sudo apt-get install -y dpkg-dev apt-utils rpm createrepo-c tree
+        run: sudo apt-get update && sudo apt-get install -y dpkg-dev apt-utils rpm createrepo-c tree zip
 
-      - name: Build Debian and RPM Packages
+      - name: Build Packages
         run: |
           make clean
           make ARCH=amd64 deb
           make ARCH=arm64 deb
           make ARCH=amd64 rpm
           make ARCH=arm64 rpm
+          rm -rf dist/p2-php
+          make windows
 
       - name: Create APT and RPM Repository structures
         run: |
@@ -66,8 +68,7 @@ jobs:
           cp dist/*.deb repo/apt/
           [ -f fukumen.gpg.key ] && cp fukumen.gpg.key repo/apt/
           
-          # Prune old DEB packages (keep latest 5 per architecture, sorted by timestamp YYYYMMDDHHMM in filename)
-          # Filename format: rep2-allinone_VERSION+TIMESTAMP_ARCH.deb
+          # Prune old DEB packages (keep latest 5 per architecture)
           for arch in amd64 arm64; do
             ls -1 repo/apt/rep2-allinone_*_${arch}.deb 2>/dev/null | \
               while read -r file; do
@@ -92,8 +93,7 @@ jobs:
           cp dist/*.rpm repo/rpm/ 2>/dev/null || true
           [ -f fukumen.gpg.key ] && cp fukumen.gpg.key repo/rpm/
           
-          # Prune old RPM packages (keep latest 5 per architecture, sorted by timestamp YYYYMMDDHHMM in filename)
-          # Filename format: rep2-allinone-VERSION.caddyVERSION.TIMESTAMP.ARCH.rpm
+          # Prune old RPM packages (keep latest 5 per architecture)
           for arch in x86_64 aarch64; do
             ls -1 repo/rpm/rep2-allinone-*.${arch}.rpm 2>/dev/null | \
               while read -r file; do
@@ -134,6 +134,6 @@ jobs:
           gh release delete latest -y --cleanup-tag || true
           
           # 新しく latest リリースを作成してアセットをアップロード
-          gh release create latest dist/*.deb dist/*.rpm \
+          gh release create latest dist/*.deb dist/*.rpm dist/*.zip \
             --title "Latest Build" \
             --notes "Automated build triggered by repository updates."
