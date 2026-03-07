@@ -11,7 +11,7 @@ It provides a portable execution environment for rep2 with a dedicated user and 
 %install
 rm -rf %{buildroot}
 cd %{_workspace}
-make install DESTDIR=%{buildroot} ARCH=%{_orig_arch}
+make install DESTDIR=%{buildroot} ARCH=%{_orig_arch} CONF_DEFAULT_DIR=/etc/sysconfig
 
 %pre
 if ! id "rep2" &>/dev/null; then
@@ -58,6 +58,8 @@ fi
 
 %files
 /opt/rep2-allinone
+/etc/rep2-allinone/build_info
 %config(noreplace) /etc/rep2-allinone/Caddyfile
 %config(noreplace) /etc/rep2-allinone/php-fpm.conf
+%config(noreplace) /etc/sysconfig/rep2-allinone
 /etc/systemd/system/rep2-allinone.service

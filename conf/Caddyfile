@@ -1,4 +1,4 @@
-:10088 {
+:{$REP2_PORT:10088} {
     log {
         output stderr
     }

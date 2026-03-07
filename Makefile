@@ -1,4 +1,4 @@
-BASE_VERSION = 1.0.1
+BASE_VERSION = 1.0.2
 PHP_VERSION_DEFAULT = 8.5.3
 PHP_VERSION_WINDOWS = 8.5.1
 
@@ -24,8 +24,13 @@ DEB_VERSION = $(BASE_VERSION)-php$(PHP_VERSION)-caddy$(CADDY_VERSION)+$(COMMIT_D
 RPM_VERSION = $(BASE_VERSION)
 RPM_RELEASE = php$(PHP_VERSION).caddy$(CADDY_VERSION).$(COMMIT_DATE)
 
+RUN_ID ?= local
+RUN_NUMBER ?= local
+REPO_TYPE = rep2-allinone
+
 PKG_NAME = rep2-allinone
 DEB_DIR = dist/$(PKG_NAME)_$(DEB_VERSION)_$(ARCH)
+CONF_DEFAULT_DIR ?= /etc/default
 
 CADDY_URL = https://github.com/caddyserver/caddy/releases/download
 CACERT_URL = https://curl.se/ca/cacert.pem
@@ -132,7 +137,17 @@ MACOS_DIR = dist/macos
 
 all: build
 
-build: dist/p2-php $(BIN_DIR)/php-fpm $(BIN_DIR)/php $(BIN_DIR)/caddy
+build: dist/p2-php $(BIN_DIR)/php-fpm $(BIN_DIR)/php $(BIN_DIR)/caddy dist/build_info
+
+dist/build_info: dist/p2-php
+	@mkdir -p dist
+	@echo "VER_REPO_TYPE=$(REPO_TYPE)" > $@
+	@echo "VER_REPO_HASH=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)" >> $@
+	@echo "VER_REPO_LOG=$(shell TZ=Asia/Tokyo git log -1 --format='%cd %s' --date=format-local:'%Y-%m-%d %H:%M' 2>/dev/null | base64 -w 0 || echo unknown)" >> $@
+	@echo "VER_REP2_HASH=$(shell cat dist/build_info_rep2_hash 2>/dev/null || echo unknown)" >> $@
+	@echo "VER_REP2_LOG=$(shell cat dist/build_info_rep2_log 2>/dev/null || echo unknown)" >> $@
+	@echo "VER_RUN_ID=$(RUN_ID)" >> $@
+	@echo "VER_RUN_NUMBER=$(RUN_NUMBER)" >> $@
 
 ifneq ($(OS),windows)
 $(PHP_FPM_TGZ): $(PHP_CHECKSUMS)
@@ -209,6 +224,8 @@ dist/p2-php:
 
 	cd dist && curl https://getcomposer.org/installer | php -- --version $(COMPOSER_VERSION)
 	cd dist/p2-php && ../composer.phar install
+	cd dist/p2-php && git rev-parse --short HEAD > ../build_info_rep2_hash
+	cd dist/p2-php && TZ=Asia/Tokyo git log -1 --format='%cd %s' --date=format-local:'%Y-%m-%d %H:%M' 2>/dev/null | base64 -w 0 > ../build_info_rep2_log
 	cd dist/p2-php && rm -rf `find . -name '.git*' -o -name 'composer.*'`
 
 	cd dist/p2-php && patch --no-backup-if-mismatch -p1 < ../../patches/p2-php.patch
@@ -233,10 +250,15 @@ install: build
 
 	install -m 755 linux/rep2-allinone $(DESTDIR)/opt/$(PKG_NAME)/rep2-allinone
 
-	install -m 644 linux/rep2-allinone.service $(DESTDIR)/etc/systemd/system/
+	sed "s|@CONF_DEFAULT_FILE@|$(CONF_DEFAULT_DIR)/$(PKG_NAME)|g" linux/rep2-allinone.service > $(DESTDIR)/etc/systemd/system/$(PKG_NAME).service
+	chmod 644 $(DESTDIR)/etc/systemd/system/$(PKG_NAME).service
+
+	mkdir -p $(DESTDIR)$(CONF_DEFAULT_DIR)
+	install -m 644 linux/default $(DESTDIR)$(CONF_DEFAULT_DIR)/$(PKG_NAME)
 
 	install -m 640 conf/Caddyfile $(DESTDIR)/etc/$(PKG_NAME)/Caddyfile
 	install -m 640 conf/php-fpm.conf $(DESTDIR)/etc/$(PKG_NAME)/php-fpm.conf
+	install -m 644 dist/build_info $(DESTDIR)/etc/$(PKG_NAME)/build_info
 
 deb: build
 	rm -rf $(DEB_DIR)
@@ -247,8 +269,12 @@ deb: build
 	cp linux/debian/postinst $(DEB_DIR)/DEBIAN/postinst
 	cp linux/debian/prerm $(DEB_DIR)/DEBIAN/prerm
 	chmod 755 $(DEB_DIR)/DEBIAN/postinst $(DEB_DIR)/DEBIAN/prerm
-	
-	SIZE=$$(du -sk $(DEB_DIR) | cut -f1); \
+
+	echo "/etc/$(PKG_NAME)/Caddyfile" > $(DEB_DIR)/DEBIAN/conffiles
+	echo "/etc/$(PKG_NAME)/php-fpm.conf" >> $(DEB_DIR)/DEBIAN/conffiles
+	echo "$(CONF_DEFAULT_DIR)/$(PKG_NAME)" >> $(DEB_DIR)/DEBIAN/conffiles
+
+	SIZE=$(du -sk $(DEB_DIR) | cut -f1); \
 	sed -i "s/^Version:.*/Version: $(DEB_VERSION)/" $(DEB_DIR)/DEBIAN/control; \
 	sed -i "s/^Architecture:.*/Architecture: $(ARCH)/" $(DEB_DIR)/DEBIAN/control; \
 	sed -i "s/^Description:/Installed-Size: $$SIZE\nDescription:/" $(DEB_DIR)/DEBIAN/control
@@ -291,6 +317,7 @@ build-macos: build
 	install -m 755 macos/rep2-allinone $(MACOS_DIR)_$(ARCH)/.rep2-allinone/rep2-allinone
 	install -m 640 conf/php-fpm.conf $(MACOS_DIR)_$(ARCH)/.rep2-allinone/conf/php-fpm.conf
 	install -m 640 macos/Caddyfile $(MACOS_DIR)_$(ARCH)/.rep2-allinone/conf/Caddyfile
+	cp dist/build_info $(MACOS_DIR)_$(ARCH)/.rep2-allinone/conf/build_info
 
 	cp macos/install.sh $(MACOS_DIR)_$(ARCH)/install.sh
 	cp macos/uninstall.sh $(MACOS_DIR)_$(ARCH)/uninstall.sh
@@ -329,6 +356,7 @@ build-windows: build $(CACERT_PEM)
 	install -m 640 windows/php.ini $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/conf/php.ini
 	install -m 640 windows/Caddyfile $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/conf/Caddyfile
 	install -m 644 $(CACERT_PEM) $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/conf/cacert.pem
+	cp dist/build_info $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/conf/build_info
 
 	cd $(WINDOWS_DIR)_$(ARCH) && zip -r ../$(PKG_NAME)-$(DEB_VERSION)-windows-$(ARCH).zip rep2-allinone
 	@echo "Windows $(ARCH) build completed: dist/$(PKG_NAME)-$(DEB_VERSION)-windows-$(ARCH).zip"

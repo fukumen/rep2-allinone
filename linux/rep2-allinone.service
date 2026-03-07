@@ -6,6 +6,7 @@ After=network.target
 Type=simple
 User=rep2
 Group=rep2
+EnvironmentFile=-@CONF_DEFAULT_FILE@
 ExecStart=/opt/rep2-allinone/rep2-allinone
 Restart=on-failure
 WorkingDirectory=/opt/rep2-allinone

@@ -38,12 +38,12 @@ jobs:
       - name: Build Packages
         run: |
           make clean
-          make ARCH=amd64 deb
-          make ARCH=arm64 deb
-          make ARCH=amd64 rpm
-          make ARCH=arm64 rpm
+          make RUN_ID=${{ github.run_id }} RUN_NUMBER=${{ github.run_number }} ARCH=amd64 deb
+          make RUN_ID=${{ github.run_id }} RUN_NUMBER=${{ github.run_number }} ARCH=arm64 deb
+          make RUN_ID=${{ github.run_id }} RUN_NUMBER=${{ github.run_number }} ARCH=amd64 rpm
+          make RUN_ID=${{ github.run_id }} RUN_NUMBER=${{ github.run_number }} ARCH=arm64 rpm
           rm -rf dist/p2-php
-          make windows
+          make RUN_ID=${{ github.run_id }} RUN_NUMBER=${{ github.run_number }} windows
 
       - name: Create APT and RPM Repository structures
         run: |

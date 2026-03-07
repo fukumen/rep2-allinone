@@ -34,11 +34,14 @@ if (!(Test-Path $SECRETS_FILE)) {
     "SECRET_KEY=$key" | Out-File -FilePath $SECRETS_FILE -Encoding ASCII
 }
 
-# Load SECRET_KEY (Set environment variable for the process)
-if (Test-Path $SECRETS_FILE) {
-    $content = Get-Content $SECRETS_FILE
-    if ($content -match "SECRET_KEY=(.+)") {
-        $env:SECRET_KEY = $matches[1].Trim()
+# Load SECRET_KEY and build information (Set environment variables for the process)
+foreach ($file in @("$SECRETS_FILE", "$HERE\conf\build_info")) {
+    if (Test-Path $file) {
+        foreach ($line in Get-Content $file) {
+            if ($line -match '^([^#=]+)=(.*)$') {
+                [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2].Trim(), "Process")
+            }
+        }
     }
 }
 

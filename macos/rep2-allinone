@@ -15,6 +15,7 @@ cp -Rn "$HERE/p2-php/conf.orig/"* "$DATA_BASE_DIR/conf/" 2>/dev/null
 cp -Rn "$HERE/p2-php/data.orig/"* "$DATA_BASE_DIR/data/" 2>/dev/null
 
 [ -f "$CONF_DIR/secrets.conf" ] && export $(grep -v '^#' "$CONF_DIR/secrets.conf" | xargs)
+[ -f "$CONF_DIR/build_info" ] && export $(grep -v '^#' "$CONF_DIR/build_info" | xargs)
 
 CADDY_BIN="./bin/caddy"
 if [ -x "$DATA_BASE_DIR/custom-caddy" ]; then
