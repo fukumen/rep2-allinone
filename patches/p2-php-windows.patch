@@ -1,0 +1,5 @@
+--- a/conf/conf.inc.php
++++ b/conf/conf.inc.php
+@@ -145,1 +145,1 @@
+-    define('P2_CONFIG_DIR', '/opt/rep2-allinone/p2-php/conf');
++    define('P2_CONFIG_DIR', __DIR__);

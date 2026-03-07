@@ -129,6 +129,7 @@ while [ $COUNT -lt $MAX_RETRIES ]; do
         HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:10088/ || echo "Failed")
         if [ "$HTTP_STATUS" = "401" ]; then
             if curl -s http://localhost:10088/ | grep -q "rep2"; then
+                echo "待機中... (Service: $STATE, Status: $HTTP_STATUS, Try: $((COUNT + 1))/$MAX_RETRIES) -> 成功！"
                 SUCCESS=true
                 break
             fi

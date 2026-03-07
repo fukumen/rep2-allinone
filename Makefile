@@ -28,6 +28,7 @@ PKG_NAME = rep2-allinone
 DEB_DIR = dist/$(PKG_NAME)_$(DEB_VERSION)_$(ARCH)
 
 CADDY_URL = https://github.com/caddyserver/caddy/releases/download
+CACERT_URL = https://curl.se/ca/cacert.pem
 
 ifeq ($(OS),macos)
 PHP_OS = macos
@@ -83,6 +84,8 @@ else
 CADDY_TGZ   = $(DOWNLOADS_DIR)/caddy_$(CADDY_VERSION)_linux_$(CADDY_ARCH).$(CADDY_EXT)
 endif
 
+CACERT_PEM = $(DOWNLOADS_DIR)/cacert.pem
+
 RPM_DIR = dist/rpmbuild
 
 .PHONY: all build install deb rpm macos build-macos windows build-windows clean dist-clean update-php-checksums
@@ -123,7 +126,7 @@ MACOS_DIR = dist/macos
 
 all: build
 
-build: dist/p2-php $(if $(filter-out windows,$(OS)),$(BIN_DIR)/php-fpm) $(BIN_DIR)/php $(BIN_DIR)/caddy
+build: dist/p2-php $(BIN_DIR)/php-fpm $(BIN_DIR)/php $(BIN_DIR)/caddy
 
 ifneq ($(OS),windows)
 $(PHP_FPM_TGZ):
@@ -158,6 +161,10 @@ $(CADDY_TGZ):
 	echo "$$HASH  $@.tmp" | (sha512sum -c || shasum -a 512 -c)
 	mv $@.tmp $@
 
+$(CACERT_PEM):
+	mkdir -p $(DOWNLOADS_DIR)
+	curl -fL -o $@ $(CACERT_URL)
+
 ifeq ($(OS),windows)
 $(BIN_DIR)/php-fpm: $(PHP_CLI_TGZ)
 	mkdir -p $(BIN_DIR)
@@ -166,7 +173,7 @@ $(BIN_DIR)/php-fpm: $(PHP_CLI_TGZ)
 
 $(BIN_DIR)/php: $(PHP_CLI_TGZ)
 	mkdir -p $(BIN_DIR)
-	unzip -q -o $< php.exe php8.dll -d $(BIN_DIR)
+	unzip -q -o $< php.exe "*.dll" -d $(BIN_DIR)
 	unzip -q -o $< "ext/*" -d $(BIN_DIR)
 	touch $@
 
@@ -199,6 +206,9 @@ dist/p2-php:
 	cd dist/p2-php && rm -rf `find . -name '.git*' -o -name 'composer.*'`
 
 	cd dist/p2-php && patch --no-backup-if-mismatch -p1 < ../../patches/p2-php.patch
+ifeq ($(OS),windows)
+	cd dist/p2-php && patch --no-backup-if-mismatch -p1 < ../../patches/p2-php-windows.patch
+endif
 
 install: build
 	mkdir -p $(DESTDIR)/opt/$(PKG_NAME)/bin
@@ -280,8 +290,8 @@ build-macos: build
 	cp macos/com.github.fukumen.rep2-allinone.plist.template $(MACOS_DIR)_$(ARCH)/com.github.fukumen.rep2-allinone.plist.template
 	chmod +x $(MACOS_DIR)_$(ARCH)/*.sh
 
-	cd $(MACOS_DIR)_$(ARCH) && tar czf ../$(PKG_NAME)-macos-$(ARCH).tar.gz .
-	@echo "macOS $(ARCH) build completed: dist/$(PKG_NAME)-macos-$(ARCH).tar.gz"
+	cd $(MACOS_DIR)_$(ARCH) && tar czf ../$(PKG_NAME)-$(DEB_VERSION)-macos-$(ARCH).tar.gz .
+	@echo "macOS $(ARCH) build completed: dist/$(PKG_NAME)-$(DEB_VERSION)-macos-$(ARCH).tar.gz"
 
 clean:
 	rm -rf dist/
@@ -293,7 +303,7 @@ dist-clean: clean
 windows:
 	$(MAKE) OS=windows ARCH=amd64 build-windows
 
-build-windows: build
+build-windows: build $(CACERT_PEM)
 	rm -rf $(WINDOWS_DIR)_$(ARCH)
 	mkdir -p $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/bin
 	mkdir -p $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/conf
@@ -308,8 +318,10 @@ build-windows: build
 	mkdir -p $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/p2-php/rep2
 
 	install -m 755 windows/rep2-allinone.bat $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/rep2-allinone.bat
+	install -m 644 windows/rep2-allinone.ps1 $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/rep2-allinone.ps1
 	install -m 640 windows/php.ini $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/conf/php.ini
 	install -m 640 windows/Caddyfile $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/conf/Caddyfile
+	install -m 644 $(CACERT_PEM) $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/conf/cacert.pem
 
-	cd $(WINDOWS_DIR)_$(ARCH) && zip -r ../$(PKG_NAME)-windows-$(ARCH).zip rep2-allinone
-	@echo "Windows $(ARCH) build completed: dist/$(PKG_NAME)-windows-$(ARCH).zip"
+	cd $(WINDOWS_DIR)_$(ARCH) && zip -r ../$(PKG_NAME)-$(DEB_VERSION)-windows-$(ARCH).zip rep2-allinone
+	@echo "Windows $(ARCH) build completed: dist/$(PKG_NAME)-$(DEB_VERSION)-windows-$(ARCH).zip"
