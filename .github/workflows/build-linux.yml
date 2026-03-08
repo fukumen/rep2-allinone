@@ -142,6 +142,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./repo
           keep_files: false
+          force_orphan: true
           commit_message: "Deploy repositories (triggered by p2-php: ${{ github.event.client_payload.sha || 'manual' }})"
 
       - name: Publish to GitHub Releases (latest)
