@@ -1,4 +1,4 @@
-BASE_VERSION = 1.0.2
+BASE_VERSION = 1.0.3
 PHP_VERSION_DEFAULT = 8.5.3
 PHP_VERSION_WINDOWS = 8.5.1
 
@@ -19,7 +19,7 @@ PHP_VERSION = $(PHP_VERSION_DEFAULT)
 PHP_URL = https://dl.static-php.dev/static-php-cli/common
 endif
 
-COMMIT_DATE = $(shell [ -d dist/p2-php ] && cd dist/p2-php && TZ=Asia/Tokyo git log -1 --format="%cd" --date=format-local:"%Y%m%d%H%M" || echo "unknown")
+COMMIT_DATE = $(shell cat dist/build_info_rep2_date 2>/dev/null || echo "unknown")
 DEB_VERSION = $(BASE_VERSION)-php$(PHP_VERSION)-caddy$(CADDY_VERSION)+$(COMMIT_DATE)
 RPM_VERSION = $(BASE_VERSION)
 RPM_RELEASE = php$(PHP_VERSION).caddy$(CADDY_VERSION).$(COMMIT_DATE)
@@ -226,6 +226,7 @@ dist/p2-php:
 	cd dist/p2-php && ../composer.phar install
 	cd dist/p2-php && git rev-parse --short HEAD > ../build_info_rep2_hash
 	cd dist/p2-php && TZ=Asia/Tokyo git log -1 --format='%cd %s' --date=format-local:'%Y-%m-%d %H:%M' 2>/dev/null | base64 -w 0 > ../build_info_rep2_log
+	cd dist/p2-php && TZ=Asia/Tokyo git log -1 --format="%cd" --date=format-local:"%Y%m%d%H%M" > ../build_info_rep2_date
 	cd dist/p2-php && rm -rf `find . -name '.git*' -o -name 'composer.*'`
 
 	cd dist/p2-php && patch --no-backup-if-mismatch -p1 < ../../patches/p2-php.patch
