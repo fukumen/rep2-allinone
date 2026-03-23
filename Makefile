@@ -229,10 +229,7 @@ dist/p2-php:
 	cd dist/p2-php && TZ=Asia/Tokyo git log -1 --format="%cd" --date=format-local:"%Y%m%d%H%M" > ../build_info_rep2_date
 	cd dist/p2-php && rm -rf `find . -name '.git*' -o -name 'composer.*'`
 
-	cd dist/p2-php && patch --no-backup-if-mismatch -p1 < ../../patches/p2-php.patch
-ifeq ($(OS),windows)
-	cd dist/p2-php && patch --no-backup-if-mismatch -p1 < ../../patches/p2-php-windows.patch
-endif
+	cd dist/p2-php && php ../../patches/apply_settings.php ../../patches/settings.txt .
 
 install: build
 	mkdir -p $(DESTDIR)/opt/$(PKG_NAME)/bin
@@ -347,6 +344,7 @@ build-windows: build $(CACERT_PEM)
 
 	cp -r $(BIN_DIR)/* $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/bin/
 	rsync -a --exclude="rep2/ic/" dist/p2-php/ $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/p2-php/
+	php patches/apply_settings.php patches/settings_windows.txt $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/p2-php
 
 	mv $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/p2-php/conf $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/p2-php/conf.orig
 	mv $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/p2-php/data $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/p2-php/data.orig
