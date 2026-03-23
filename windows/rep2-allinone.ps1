@@ -21,6 +21,9 @@ if (!(Test-Path $confPath)) {
     New-Item -ItemType Directory -Force -Path "$HERE\p2-php\conf" | Out-Null
     Copy-Item -Path "$HERE\p2-php\conf.orig\*" -Destination "$HERE\p2-php\conf\" -Recurse -Force
 }
+if (Test-Path "$HERE\p2-php\conf.orig\conf_user_def*") {
+    Copy-Item -Path "$HERE\p2-php\conf.orig\conf_user_def*" -Destination "$HERE\p2-php\conf\" -Force
+}
 $dataPath = "$HERE\p2-php\data\db"
 if (!(Test-Path $dataPath)) {
     New-Item -ItemType Directory -Force -Path "$HERE\p2-php\data" | Out-Null

@@ -11,8 +11,9 @@ export XDG_DATA_HOME="$DATA_BASE_DIR/caddy_data"
 
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$DATA_BASE_DIR/conf" "$DATA_BASE_DIR/data"
 
-cp -Rn "$HERE/p2-php/conf.orig/"* "$DATA_BASE_DIR/conf/" 2>/dev/null
-cp -Rn "$HERE/p2-php/data.orig/"* "$DATA_BASE_DIR/data/" 2>/dev/null
+cp -Rn "$HERE/p2-php/conf.orig/"* "$DATA_BASE_DIR/conf/"
+cp -f "$HERE/p2-php/conf.orig/conf_user_def"* "$DATA_BASE_DIR/conf/"
+cp -Rn "$HERE/p2-php/data.orig/"* "$DATA_BASE_DIR/data/"
 
 [ -f "$CONF_DIR/secrets.conf" ] && export $(grep -v '^#' "$CONF_DIR/secrets.conf" | xargs)
 [ -f "$CONF_DIR/build_info" ] && export $(grep -v '^#' "$CONF_DIR/build_info" | xargs)
@@ -30,4 +31,4 @@ PHP_PID=$!
 trap "kill $PHP_PID 2>/dev/null; exit" INT TERM EXIT
 
 echo "Starting Caddy server..."
-exec $CADDY_BIN run --config "$CONF_DIR/Caddyfile" --adapter caddyfile
+$CADDY_BIN run --config "$CONF_DIR/Caddyfile" --adapter caddyfile

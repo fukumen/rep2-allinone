@@ -12,6 +12,7 @@ export XDG_DATA_HOME="$DATA_BASE_DIR/caddy_data"
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME"
 
 cp -Rn "$HERE/p2-php/conf.orig/"* "$DATA_BASE_DIR/conf/"
+cp -f "$HERE/p2-php/conf.orig/conf_user_def"* "$DATA_BASE_DIR/conf/"
 cp -Rn "$HERE/p2-php/data.orig/"* "$DATA_BASE_DIR/data/"
 
 [ -f "$CONF_DIR/secrets.conf" ] && export $(grep -v '^#' "$CONF_DIR/secrets.conf" | xargs)
