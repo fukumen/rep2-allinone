@@ -48,6 +48,40 @@ foreach ($file in @("$SECRETS_FILE", "$HERE\conf\build_info")) {
     }
 }
 
+$env:ORIG_CONF = "$HERE\p2-php\conf.orig\conf.inc.php"
+$env:TARGET_CONF = "$HERE\p2-php\conf\conf.inc.php"
+$phpScript = @'
+<?php
+$orig_file = getenv('ORIG_CONF');
+$target_file = getenv('TARGET_CONF');
+
+if (!file_exists($orig_file) || !file_exists($target_file)) {
+    exit;
+}
+
+$orig_lines = file($orig_file);
+$target_lines = file($target_file);
+$new_line = '';
+
+foreach ($orig_lines as $line) {
+    if (strpos($line, "'p2version'") !== false && strpos($line, '=>') !== false) {
+        $new_line = $line;
+        break;
+    }
+}
+
+if ($new_line !== '') {
+    foreach ($target_lines as $k => $line) {
+        if (strpos($line, "'p2version'") !== false && strpos($line, '=>') !== false) {
+            $target_lines[$k] = $new_line;
+            break;
+        }
+    }
+    file_put_contents($target_file, implode('', $target_lines));
+}
+'@
+$phpScript | & $PHP_BIN
+
 # Run setup
 & $PHP_BIN -d extension_dir="$HERE\bin\ext" -d curl.cainfo="$CACERT_PEM" -d openssl.cafile="$CACERT_PEM" -c "$PHP_INI" "$HERE\p2-php\scripts\ic2.php" setup
 
