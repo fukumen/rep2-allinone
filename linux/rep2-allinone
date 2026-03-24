@@ -56,7 +56,7 @@ if ($new_line !== '') {
 }
 EOF
 
-./bin/php "$HERE/p2-php/scripts/ic2.php" setup
+./bin/php "$HERE/p2-php/scripts/ic2.php" setup | iconv -f SHIFT_JIS -t UTF-8
 
 ./bin/php-fpm -y "$CONF_DIR/php-fpm.conf" -F &
 PHP_PID=$!

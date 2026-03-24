@@ -11,7 +11,7 @@ It provides a portable execution environment for rep2 with a dedicated user and 
 %install
 rm -rf %{buildroot}
 cd %{_workspace}
-make install DESTDIR=%{buildroot} ARCH=%{_orig_arch} CONF_DEFAULT_DIR=/etc/sysconfig
+make install OS=linux DESTDIR=%{buildroot} ARCH=%{_orig_arch} CONF_DEFAULT_DIR=/etc/sysconfig
 
 %pre
 if ! id "rep2" &>/dev/null; then

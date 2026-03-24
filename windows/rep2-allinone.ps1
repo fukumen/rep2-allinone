@@ -15,19 +15,27 @@ $XDG_DATA_HOME = "$DATA_BASE_DIR\caddy_data"
 if (!(Test-Path $XDG_CONFIG_HOME)) { New-Item -ItemType Directory -Force -Path $XDG_CONFIG_HOME | Out-Null }
 if (!(Test-Path $XDG_DATA_HOME)) { New-Item -ItemType Directory -Force -Path $XDG_DATA_HOME | Out-Null }
 
-# Initial setup: Copy default config/data to p2-php/
-$confPath = "$HERE\p2-php\conf\conf.inc.php"
-if (!(Test-Path $confPath)) {
-    New-Item -ItemType Directory -Force -Path "$HERE\p2-php\conf" | Out-Null
-    Copy-Item -Path "$HERE\p2-php\conf.orig\*" -Destination "$HERE\p2-php\conf\" -Recurse -Force
+# Initial setup: Copy missing files from .orig
+# (Similar to 'cp -Rn src/* dest/')
+foreach ($folder in @("conf", "data")) {
+    $srcDir = "$HERE\p2-php\$folder.orig"
+    $destDir = "$HERE\p2-php\$folder"
+    if (!(Test-Path $destDir)) {
+        New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+    }
+    if (Test-Path $srcDir) {
+        Get-ChildItem -Path "$srcDir\*" | ForEach-Object {
+            $destItem = Join-Path $destDir $_.Name
+            if (!(Test-Path $destItem)) {
+                Copy-Item -Path $_.FullName -Destination $destItem -Recurse -Force
+            }
+        }
+    }
 }
+
+# Always overwrite conf_user_def*
 if (Test-Path "$HERE\p2-php\conf.orig\conf_user_def*") {
     Copy-Item -Path "$HERE\p2-php\conf.orig\conf_user_def*" -Destination "$HERE\p2-php\conf\" -Force
-}
-$dataPath = "$HERE\p2-php\data\db"
-if (!(Test-Path $dataPath)) {
-    New-Item -ItemType Directory -Force -Path "$HERE\p2-php\data" | Out-Null
-    Copy-Item -Path "$HERE\p2-php\data.orig\*" -Destination "$HERE\p2-php\data\" -Recurse -Force
 }
 
 # Generate SECRET_KEY if not exists

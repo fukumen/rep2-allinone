@@ -9,7 +9,7 @@ CONF_DIR="/etc/rep2-allinone"
 SECRETS_FILE="$CONF_DIR/secrets.conf"
 
 if [ ! -f "$SECRETS_FILE" ]; then
-    SECRET_KEY=$(openssl rand -hex 32)
+    SECRET_KEY=$(/opt/rep2-allinone/bin/php -r 'echo bin2hex(random_bytes(32));')
     echo "SECRET_KEY=$SECRET_KEY" > "$SECRETS_FILE"
     chmod 600 "$SECRETS_FILE"
 fi

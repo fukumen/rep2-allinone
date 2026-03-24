@@ -1,4 +1,4 @@
-BASE_VERSION = 1.0.6
+BASE_VERSION = 1.1.0
 PHP_VERSION_DEFAULT = 8.5.4
 PHP_VERSION_WINDOWS = 8.5.4
 
@@ -8,8 +8,26 @@ COMPOSER_VERSION = 2.9.4
 REP2_REPO = https://github.com/fukumen/p2-php.git
 REP2_BRANCH = php8-merge-mbstring
 
-ARCH ?= amd64
-OS ?= linux
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+    HOST_OS_DETECTED := linux
+else ifeq ($(UNAME_S),Darwin)
+    HOST_OS_DETECTED := macos
+else
+    HOST_OS_DETECTED := linux
+endif
+
+UNAME_M := $(shell uname -m)
+ifeq ($(UNAME_M),x86_64)
+    HOST_ARCH_DETECTED := amd64
+else ifneq (,$(filter aarch64 arm64,$(UNAME_M)))
+    HOST_ARCH_DETECTED := arm64
+else
+    HOST_ARCH_DETECTED := amd64
+endif
+
+ARCH ?= $(HOST_ARCH_DETECTED)
+OS ?= $(HOST_OS_DETECTED)
 
 ifeq ($(OS),windows)
 PHP_VERSION = $(PHP_VERSION_WINDOWS)
@@ -47,13 +65,19 @@ CADDY_OS = linux
 endif
 
 ifeq ($(ARCH),arm64)
-PHP_ARCH = aarch64
-CADDY_ARCH = arm64
-RPM_ARCH = aarch64
+    PHP_ARCH   = aarch64
+    CADDY_ARCH = arm64
+    DEB_ARCH   = arm64
+    RPM_ARCH   = aarch64
+    MAC_ARCH   = arm64
+    WIN_ARCH   = arm64
 else
-PHP_ARCH = x86_64
-CADDY_ARCH = amd64
-RPM_ARCH = x86_64
+    PHP_ARCH   = x86_64
+    CADDY_ARCH = amd64
+    DEB_ARCH   = amd64
+    RPM_ARCH   = x86_64
+    MAC_ARCH   = x86_64
+    WIN_ARCH   = x86_64
 endif
 
 DOWNLOADS_DIR = downloads
@@ -95,7 +119,11 @@ RPM_DIR = dist/rpmbuild
 
 PHP_CHECKSUMS = dist/php-checksums.txt
 
-.PHONY: all build install deb rpm macos build-macos windows build-windows clean dist-clean update-php-checksums
+
+HOST_BIN_DIR = dist/bin-$(HOST_OS_DETECTED)-$(HOST_ARCH_DETECTED)
+HOST_PHP_BIN = $(HOST_BIN_DIR)/php
+
+.PHONY: all build install install-linux install-macos install-windows deb rpm macos windows clean dist-clean update-php-checksums
 
 $(PHP_CHECKSUMS):
 	$(MAKE) update-php-checksums
@@ -219,19 +247,26 @@ $(BIN_DIR)/caddy: $(CADDY_TGZ)
 	touch $@
 endif
 
-dist/p2-php:
+ifneq ($(OS)-$(ARCH),$(HOST_OS_DETECTED)-$(HOST_ARCH_DETECTED))
+$(HOST_PHP_BIN):
+	$(MAKE) OS=$(HOST_OS_DETECTED) ARCH=$(HOST_ARCH_DETECTED) $@
+endif
+
+dist/p2-php: $(HOST_PHP_BIN)
 	git clone --depth 1 -b $(REP2_BRANCH) $(REP2_REPO) dist/p2-php
 
-	cd dist && curl https://getcomposer.org/installer | php -- --version $(COMPOSER_VERSION)
-	cd dist/p2-php && ../composer.phar install
+	cd dist && curl https://getcomposer.org/installer | ../$(HOST_PHP_BIN) -- --version $(COMPOSER_VERSION)
+	cd dist/p2-php && ../../$(HOST_PHP_BIN) ../composer.phar install
 	cd dist/p2-php && git rev-parse --short HEAD > ../build_info_rep2_hash
 	cd dist/p2-php && TZ=Asia/Tokyo git log -1 --format='%cd %s' --date=format-local:'%Y-%m-%d %H:%M' 2>/dev/null | base64 -w 0 > ../build_info_rep2_log
 	cd dist/p2-php && TZ=Asia/Tokyo git log -1 --format="%cd" --date=format-local:"%Y%m%d%H%M" > ../build_info_rep2_date
 	cd dist/p2-php && rm -rf `find . -name '.git*' -o -name 'composer.*'`
 
-	cd dist/p2-php && php ../../patches/apply_settings.php ../../patches/settings.txt .
+	cd dist/p2-php && ../../$(HOST_PHP_BIN) ../../patches/apply_settings.php ../../patches/settings.txt .
 
-install: build
+install: install-$(OS)
+
+install-linux: build
 	mkdir -p $(DESTDIR)/opt/$(PKG_NAME)/bin
 	mkdir -p $(DESTDIR)/opt/$(PKG_NAME)/p2-php
 	mkdir -p $(DESTDIR)/etc/$(PKG_NAME)
@@ -252,15 +287,67 @@ install: build
 	chmod 644 $(DESTDIR)/etc/systemd/system/$(PKG_NAME).service
 
 	mkdir -p $(DESTDIR)$(CONF_DEFAULT_DIR)
-	install -m 644 linux/default $(DESTDIR)$(CONF_DEFAULT_DIR)/$(PKG_NAME)
+	install -m 644 conf/default $(DESTDIR)$(CONF_DEFAULT_DIR)/$(PKG_NAME)
 
-	install -m 640 conf/Caddyfile $(DESTDIR)/etc/$(PKG_NAME)/Caddyfile
-	install -m 640 conf/php-fpm.conf $(DESTDIR)/etc/$(PKG_NAME)/php-fpm.conf
+	install -m 640 linux/Caddyfile $(DESTDIR)/etc/$(PKG_NAME)/Caddyfile
+	install -m 640 linux/php-fpm.conf $(DESTDIR)/etc/$(PKG_NAME)/php-fpm.conf
 	install -m 644 dist/build_info $(DESTDIR)/etc/$(PKG_NAME)/build_info
 
-deb: build
+install-macos: build
+	mkdir -p $(DESTDIR)/bin
+	mkdir -p $(DESTDIR)/conf
+	mkdir -p $(DESTDIR)/p2-php
+
+	cp -r $(BIN_DIR)/* $(DESTDIR)/bin/
+	rsync -a --exclude="rep2/ic/" dist/p2-php/ $(DESTDIR)/p2-php/
+	$(HOST_PHP_BIN) patches/apply_settings.php patches/settings_macos.txt $(DESTDIR)/p2-php
+
+	mv $(DESTDIR)/p2-php/conf $(DESTDIR)/p2-php/conf.orig
+	mv $(DESTDIR)/p2-php/data $(DESTDIR)/p2-php/data.orig
+	mkdir -p $(DESTDIR)/p2-php/rep2
+
+	install -m 755 macos/rep2-allinone $(DESTDIR)/rep2-allinone
+	install -m 640 macos/php-fpm.conf $(DESTDIR)/conf/php-fpm.conf
+	install -m 640 macos/Caddyfile $(DESTDIR)/conf/Caddyfile
+	install -m 644 conf/default $(DESTDIR)/conf/default
+	cp dist/build_info $(DESTDIR)/conf/build_info
+
+install-windows: build $(CACERT_PEM)
+	mkdir -p $(DESTDIR)/bin
+	mkdir -p $(DESTDIR)/conf
+	mkdir -p $(DESTDIR)/var
+	mkdir -p $(DESTDIR)/p2-php
+
+	cp -r $(BIN_DIR)/* $(DESTDIR)/bin/
+	rsync -a --exclude="rep2/ic/" dist/p2-php/ $(DESTDIR)/p2-php/
+	$(HOST_PHP_BIN) patches/apply_settings.php patches/settings_windows.txt $(DESTDIR)/p2-php
+
+	mv $(DESTDIR)/p2-php/conf $(DESTDIR)/p2-php/conf.orig
+	mv $(DESTDIR)/p2-php/data $(DESTDIR)/p2-php/data.orig
+	mkdir -p $(DESTDIR)/p2-php/rep2
+
+	install -m 755 windows/rep2-allinone.bat $(DESTDIR)/rep2-allinone.bat
+	install -m 644 windows/rep2-allinone.ps1 $(DESTDIR)/rep2-allinone.ps1
+	install -m 640 windows/php.ini $(DESTDIR)/conf/php.ini
+	install -m 640 windows/Caddyfile $(DESTDIR)/conf/Caddyfile
+	install -m 644 $(CACERT_PEM) $(DESTDIR)/conf/cacert.pem
+	cp dist/build_info $(DESTDIR)/conf/build_info
+
+deb:
+	$(MAKE) OS=linux ARCH=$(ARCH) _deb
+
+rpm:
+	$(MAKE) OS=linux ARCH=$(ARCH) _rpm
+
+macos:
+	$(MAKE) OS=macos ARCH=$(ARCH) _macos
+
+windows:
+	$(MAKE) OS=windows ARCH=$(ARCH) _windows
+
+_deb: build
 	rm -rf $(DEB_DIR)
-	make install DESTDIR=$(DEB_DIR)
+	$(MAKE) install-linux DESTDIR=$(DEB_DIR)
 	
 	mkdir -p $(DEB_DIR)/DEBIAN
 	cp linux/debian/control $(DEB_DIR)/DEBIAN/control
@@ -272,14 +359,14 @@ deb: build
 	echo "/etc/$(PKG_NAME)/php-fpm.conf" >> $(DEB_DIR)/DEBIAN/conffiles
 	echo "$(CONF_DEFAULT_DIR)/$(PKG_NAME)" >> $(DEB_DIR)/DEBIAN/conffiles
 
-	SIZE=$(du -sk $(DEB_DIR) | cut -f1); \
+	SIZE=$$(du -sk $(DEB_DIR) | cut -f1); \
 	sed -i "s/^Version:.*/Version: $(DEB_VERSION)/" $(DEB_DIR)/DEBIAN/control; \
-	sed -i "s/^Architecture:.*/Architecture: $(ARCH)/" $(DEB_DIR)/DEBIAN/control; \
+	sed -i "s/^Architecture:.*/Architecture: $(DEB_ARCH)/" $(DEB_DIR)/DEBIAN/control; \
 	sed -i "s/^Description:/Installed-Size: $$SIZE\nDescription:/" $(DEB_DIR)/DEBIAN/control
 	
 	dpkg-deb -Zxz --root-owner-group --build $(DEB_DIR)
 
-rpm: build
+_rpm: build
 	rm -rf $(RPM_DIR)
 	mkdir -p $(RPM_DIR)/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 	rpmbuild -bb \
@@ -293,69 +380,20 @@ rpm: build
 		linux/rpm/rep2-allinone.spec
 	find $(RPM_DIR)/RPMS -name "*.rpm" -exec cp {} dist/ \;
 
-
-macos:
-	$(MAKE) OS=macos ARCH=arm64 build-macos
-	$(MAKE) OS=macos ARCH=amd64 build-macos
-
-build-macos: build
+_macos: build
 	rm -rf $(MACOS_DIR)_$(ARCH)
-	mkdir -p $(MACOS_DIR)_$(ARCH)/.rep2-allinone/bin
-	mkdir -p $(MACOS_DIR)_$(ARCH)/.rep2-allinone/conf
-	mkdir -p $(MACOS_DIR)_$(ARCH)/.rep2-allinone/var
-	mkdir -p $(MACOS_DIR)_$(ARCH)/.rep2-allinone/p2-php
+	$(MAKE) install-macos DESTDIR=$(MACOS_DIR)_$(ARCH)
 
-	cp -r $(BIN_DIR)/* $(MACOS_DIR)_$(ARCH)/.rep2-allinone/bin/
-	rsync -a --exclude="rep2/ic/" dist/p2-php/ $(MACOS_DIR)_$(ARCH)/.rep2-allinone/p2-php/
+	cd $(MACOS_DIR)_$(ARCH) && tar czf ../$(PKG_NAME)-$(DEB_VERSION)-macos-$(MAC_ARCH).tar.gz .
 
-	mv $(MACOS_DIR)_$(ARCH)/.rep2-allinone/p2-php/conf $(MACOS_DIR)_$(ARCH)/.rep2-allinone/p2-php/conf.orig
-	mv $(MACOS_DIR)_$(ARCH)/.rep2-allinone/p2-php/data $(MACOS_DIR)_$(ARCH)/.rep2-allinone/p2-php/data.orig
-	mkdir -p $(MACOS_DIR)_$(ARCH)/.rep2-allinone/p2-php/rep2
+_windows: build
+	rm -rf $(WINDOWS_DIR)_$(ARCH)
+	$(MAKE) install-windows DESTDIR=$(WINDOWS_DIR)_$(ARCH)/rep2-allinone
 
-	install -m 755 macos/rep2-allinone $(MACOS_DIR)_$(ARCH)/.rep2-allinone/rep2-allinone
-	install -m 640 conf/php-fpm.conf $(MACOS_DIR)_$(ARCH)/.rep2-allinone/conf/php-fpm.conf
-	install -m 640 macos/Caddyfile $(MACOS_DIR)_$(ARCH)/.rep2-allinone/conf/Caddyfile
-	cp dist/build_info $(MACOS_DIR)_$(ARCH)/.rep2-allinone/conf/build_info
-
-	cp macos/install.sh $(MACOS_DIR)_$(ARCH)/install.sh
-	cp macos/uninstall.sh $(MACOS_DIR)_$(ARCH)/uninstall.sh
-	cp macos/com.github.fukumen.rep2-allinone.plist.template $(MACOS_DIR)_$(ARCH)/com.github.fukumen.rep2-allinone.plist.template
-	chmod +x $(MACOS_DIR)_$(ARCH)/*.sh
-
-	cd $(MACOS_DIR)_$(ARCH) && tar czf ../$(PKG_NAME)-$(DEB_VERSION)-macos-$(ARCH).tar.gz .
-	@echo "macOS $(ARCH) build completed: dist/$(PKG_NAME)-$(DEB_VERSION)-macos-$(ARCH).tar.gz"
+	cd $(WINDOWS_DIR)_$(ARCH) && zip -r ../$(PKG_NAME)-$(DEB_VERSION)-windows-$(WIN_ARCH).zip rep2-allinone
 
 clean:
 	rm -rf dist/
 
 dist-clean: clean
 	rm -rf $(DOWNLOADS_DIR)/
-
-
-windows:
-	$(MAKE) OS=windows ARCH=amd64 build-windows
-
-build-windows: build $(CACERT_PEM)
-	rm -rf $(WINDOWS_DIR)_$(ARCH)
-	mkdir -p $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/bin
-	mkdir -p $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/conf
-	mkdir -p $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/var
-	mkdir -p $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/p2-php
-
-	cp -r $(BIN_DIR)/* $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/bin/
-	rsync -a --exclude="rep2/ic/" dist/p2-php/ $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/p2-php/
-	php patches/apply_settings.php patches/settings_windows.txt $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/p2-php
-
-	mv $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/p2-php/conf $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/p2-php/conf.orig
-	mv $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/p2-php/data $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/p2-php/data.orig
-	mkdir -p $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/p2-php/rep2
-
-	install -m 755 windows/rep2-allinone.bat $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/rep2-allinone.bat
-	install -m 644 windows/rep2-allinone.ps1 $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/rep2-allinone.ps1
-	install -m 640 windows/php.ini $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/conf/php.ini
-	install -m 640 windows/Caddyfile $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/conf/Caddyfile
-	install -m 644 $(CACERT_PEM) $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/conf/cacert.pem
-	cp dist/build_info $(WINDOWS_DIR)_$(ARCH)/rep2-allinone/conf/build_info
-
-	cd $(WINDOWS_DIR)_$(ARCH) && zip -r ../$(PKG_NAME)-$(DEB_VERSION)-windows-$(ARCH).zip rep2-allinone
-	@echo "Windows $(ARCH) build completed: dist/$(PKG_NAME)-$(DEB_VERSION)-windows-$(ARCH).zip"

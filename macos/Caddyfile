@@ -1,8 +1,8 @@
-:10088 {
+:{$REP2_PORT:10088} {
     log {
         output stderr
     }
-    root * HOME_DIR/.rep2-allinone/p2-php/rep2
+    root * {$REP2_WWW_ROOT}
     php_fastcgi 127.0.0.1:9000
     file_server
 

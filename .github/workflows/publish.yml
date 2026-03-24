@@ -40,9 +40,11 @@ jobs:
           make clean
           make RUN_ID=${{ github.run_id }} RUN_NUMBER=${{ github.run_number }} ARCH=amd64 deb
           make RUN_ID=${{ github.run_id }} RUN_NUMBER=${{ github.run_number }} ARCH=arm64 deb
-          make RUN_ID=${{ github.run_id }} RUN_NUMBER=${{ github.run_number }} ARCH=amd64 rpm
+          make RUN_ID=${{ github.run_id }} RUN_NUMBER=${{ github.run_number }} ARCH=x86_64 rpm
           make RUN_ID=${{ github.run_id }} RUN_NUMBER=${{ github.run_number }} ARCH=arm64 rpm
-          make RUN_ID=${{ github.run_id }} RUN_NUMBER=${{ github.run_number }} windows
+          make RUN_ID=${{ github.run_id }} RUN_NUMBER=${{ github.run_number }} ARCH=x86_64 macos
+          make RUN_ID=${{ github.run_id }} RUN_NUMBER=${{ github.run_number }} ARCH=arm64 macos
+          make RUN_ID=${{ github.run_id }} RUN_NUMBER=${{ github.run_number }} ARCH=x86_64 windows
 
       - name: Create APT and RPM Repository structures
         run: |
@@ -119,8 +121,21 @@ jobs:
           ls -1 repo/php-checksums-*.txt 2>/dev/null | sort -Vrn | tail -n +6 | xargs -r rm -v -f
 
           # Prune old ZIP packages (keep latest 5 per architecture)
-          for arch in amd64 arm64; do
+          for arch in x86_64 arm64; do
             ls -1 repo/zip/rep2-allinone-*-windows-${arch}.zip 2>/dev/null | \
+              while read -r file; do
+                ts=$(echo "$file" | grep -oP '\+\K\d{12}')
+                echo "$ts $file"
+              done | sort -rn | tail -n +6 | awk '{print $2}' | xargs -r rm -v -f
+          done
+
+          # --- macOS (.tar.gz) ---
+          mkdir -p repo/macos
+          cp dist/*.tar.gz repo/macos/ 2>/dev/null || true
+          
+          # Prune old macOS packages (keep latest 5 per architecture)
+          for arch in x86_64 arm64; do
+            ls -1 repo/macos/rep2-allinone-*-macos-${arch}.tar.gz 2>/dev/null | \
               while read -r file; do
                 ts=$(echo "$file" | grep -oP '\+\K\d{12}')
                 echo "$ts $file"
@@ -134,6 +149,7 @@ jobs:
           cd apt && tree -H '.' -L 1 --noreport --charset utf-8 -T "rep2-allinone APT Repository" -o index.html && cd ..
           cd rpm && tree -H '.' -L 1 --noreport --charset utf-8 -T "rep2-allinone RPM Repository" -o index.html && cd ..
           cd zip && tree -H '.' -L 1 --noreport --charset utf-8 -T "rep2-allinone ZIP Downloads" -o index.html && cd ..
+          cd macos && tree -H '.' -L 1 --noreport --charset utf-8 -T "rep2-allinone macOS Packages" -o index.html && cd ..
 
       - name: Deploy to GitHub Pages (gh-pages branch)
         uses: peaceiris/actions-gh-pages@v4
@@ -154,6 +170,60 @@ jobs:
           cp dist/php-checksums.txt dist/php-checksums-${{ github.run_number }}.txt
           
           # 新しく latest リリースを作成してアセットをアップロード
-          gh release create latest dist/*.deb dist/*.rpm dist/*.zip dist/php-checksums-${{ github.run_number }}.txt \
+          gh release create latest dist/*.deb dist/*.rpm dist/*.zip dist/*.tar.gz dist/php-checksums-${{ github.run_number }}.txt \
             --title "Latest Build" \
             --notes "Automated build triggered by repository updates."
+
+      - name: Checkout Homebrew Tap
+        if: github.ref == 'refs/heads/main' || github.event_name == 'repository_dispatch'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/homebrew-tap
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          path: tap-repo
+
+      - name: Generate Homebrew Formulas
+        if: github.ref == 'refs/heads/main' || github.event_name == 'repository_dispatch'
+        run: |
+          mkdir -p tap-output/Formula
+          
+          VERSION=$(grep '^BASE_VERSION =' Makefile | awk '{print $3}')
+          V_SAFE=$(echo "$VERSION" | sed 's/\.//g')
+
+          FILE_ARM64=$(basename dist/*-macos-arm64.tar.gz)
+          FILE_X86_64=$(basename dist/*-macos-x86_64.tar.gz)
+
+          sed -e "s/@@VERSION@@/$VERSION/g" \
+              -e "s/@@FILE_ARM64@@/$FILE_ARM64/g" \
+              -e "s/@@FILE_X86_64@@/$FILE_X86_64/g" \
+              -e "s/@@SHA_ARM64@@/$(sha256sum "dist/$FILE_ARM64" | awk '{print $1}')/g" \
+              -e "s/@@SHA_X86_64@@/$(sha256sum "dist/$FILE_X86_64" | awk '{print $1}')/g" \
+              macos/homebrew-formula.rb.template > tap-output/Formula/rep2-allinone.rb
+
+          sed "s/class Rep2Allinone/class Rep2AllinoneAT$V_SAFE/g" \
+              tap-output/Formula/rep2-allinone.rb > "tap-output/Formula/rep2-allinone@$VERSION.rb"
+
+          VALID_VERSIONS=$(ls repo/macos/rep2-allinone-*-macos-*.tar.gz 2>/dev/null | sed -E 's/.*rep2-allinone-(.*)-macos-.*/\1/' | sort -u)
+          
+          if [ -d "tap-repo/Formula" ]; then
+            for f in tap-repo/Formula/rep2-allinone@*.rb; do
+              [ -f "$f" ] || continue
+              V=$(echo "$f" | sed -E 's/.*@(.*)\.rb/\1/')
+              if echo "$VALID_VERSIONS" | grep -qx "$V"; then
+                cp "$f" tap-output/Formula/
+              fi
+            done
+          fi
+
+      - name: Push to Homebrew Tap
+        if: github.ref == 'refs/heads/main' || github.event_name == 'repository_dispatch'
+        uses: cpina/github-action-push-to-another-repository@main
+        env:
+          API_TOKEN_GITHUB: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        with:
+          source-directory: 'tap-output'
+          destination-github-username: '${{ github.repository_owner }}'
+          destination-repository-name: 'homebrew-tap'
+          user-email: 41898282+github-actions[bot]@users.noreply.github.com
+          target-branch: main
+          commit-message: "chore: update formulas for v$(grep '^BASE_VERSION =' Makefile | awk '{print $3}')"
