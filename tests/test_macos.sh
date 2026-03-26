@@ -15,11 +15,13 @@ rep2-allinone の macOS 版パッケージ (.tar.gz) を Lume を使って macOS
 オプション:
   --image=IMAGE  使用する macOS イメージ (デフォルト: macos-tahoe-vanilla:latest)
   --user=USER    VM内のユーザー名 (デフォルト: admin)
+  --repo         ローカルのパッケージではなく、公式 Tap (fukumen/tap) からインストールします
   --manual       テスト終了後もコンテナを削除せずに維持します
   -h, --help     このヘルプを表示して終了します
 
 使用例:
   $(basename "$0")
+  $(basename "$0") --repo
   $(basename "$0") --manual
 EOF
 }
@@ -27,6 +29,7 @@ EOF
 IMAGE="macos-tahoe-vanilla:latest"
 SSH_USER="lume"
 SSH_PASS="lume"
+REPO_MODE=false
 MANUAL_MODE=false
 
 while [ $# -gt 0 ]; do
@@ -37,6 +40,10 @@ while [ $# -gt 0 ]; do
             ;;
         --user=*)
             SSH_USER="${1#*=}"
+            shift
+            ;;
+        --repo)
+            REPO_MODE=true
             shift
             ;;
         --manual)
@@ -68,17 +75,20 @@ if [ -z "$PUB_KEY" ]; then
     exit 1
 fi
 
-PKG_PATH=$(ls dist/rep2-allinone-*-macos-*.tar.gz 2>/dev/null | sort -V | tail -n 1)
-if [ -z "$PKG_PATH" ]; then
-    echo "エラー: dist/ ディレクトリに macOS 版の .tar.gz パッケージが見つかりません。'make macos' を先に実行してください。"
-    exit 1
+if [ "$REPO_MODE" = "false" ]; then
+    PKG_PATH=$(ls dist/rep2-allinone-*-macos-*.tar.gz 2>/dev/null | sort -V | tail -n 1)
+    if [ -z "$PKG_PATH" ]; then
+        echo "エラー: dist/ ディレクトリに macOS 版の .tar.gz パッケージが見つかりません。'make macos' を先に実行してください。"
+        exit 1
+    fi
+    echo "使用パッケージ: $PKG_PATH"
+    VERSION=$(basename "$PKG_PATH" | sed -E 's/rep2-allinone-([0-9]+\.[0-9]+\.[0-9]+)-.*/\1/')
+    echo "バージョン：$VERSION"
+else
+    echo "Repo モード: 公式 Tap (fukumen/tap) からインストールします。"
 fi
 
-echo "使用パッケージ: $PKG_PATH"
 echo "使用イメージ: $IMAGE"
-
-VERSION=$(basename "$PKG_PATH" | sed -E 's/rep2-allinone-([0-9]+\.[0-9]+\.[0-9]+)-.*/\1/')
-echo "バージョン：$VERSION"
 
 VM_IMAGE=$(echo "$IMAGE" | tr ':' '_')
 if lume get "$VM_IMAGE" >/dev/null 2>&1; then
@@ -143,19 +153,19 @@ cat "$PUB_KEY" | sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no -o Conne
 echo "SSH 接続を確認中 (公開鍵認証)..."
 ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=no "$SSH_USER@$VM_IP" "echo SSH_CONNECTED" > /dev/null
 
-echo "パッケージを VM に転送中..."
-scp -o StrictHostKeyChecking=no -o PasswordAuthentication=no "$PKG_PATH" "$SSH_USER@$VM_IP:/tmp/rep2-allinone.tar.gz"
+if [ "$REPO_MODE" = "false" ]; then
+    echo "パッケージを VM に転送中..."
+    scp -o StrictHostKeyChecking=no -o PasswordAuthentication=no "$PKG_PATH" "$SSH_USER@$VM_IP:/tmp/rep2-allinone.tar.gz"
 
-SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-PROJECT_ROOT=$(dirname "$SCRIPT_DIR")
-TEMPLATE_FILE="$PROJECT_ROOT/macos/homebrew-formula.rb.template"
+    SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+    PROJECT_ROOT=$(dirname "$SCRIPT_DIR")
+    TEMPLATE_FILE="$PROJECT_ROOT/macos/homebrew-formula.rb.template"
 
-echo "Homebrew formula テンプレートを VM に転送中..."
-scp -o StrictHostKeyChecking=no -o PasswordAuthentication=no "$TEMPLATE_FILE" "$SSH_USER@$VM_IP:/tmp/homebrew-formula.rb.template"
+    echo "Homebrew formula テンプレートを VM に転送中..."
+    scp -o StrictHostKeyChecking=no -o PasswordAuthentication=no "$TEMPLATE_FILE" "$SSH_USER@$VM_IP:/tmp/homebrew-formula.rb.template"
+fi
 echo "Homebrew をインストールします..."
 ssh -tt -o StrictHostKeyChecking=no -o ConnectTimeout=10 "$SSH_USER@$VM_IP" "bash -c 'echo $SSH_PASS | sudo -S -v && NONINTERACTIVE=1 /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"'"
-
-echo "Homebrew パッケージを展開します..."
 
 run_ssh() {
     ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=no -o ConnectTimeout=10 "$SSH_USER@$VM_IP" "$@"
@@ -163,22 +173,29 @@ run_ssh() {
 
 BREW_ENV='if [ "$(uname -m)" = "arm64" ]; then eval "$(/opt/homebrew/bin/brew shellenv)"; else eval "$(/usr/local/bin/brew shellenv)"; fi;'
 
-echo "SHA256の計算中..."
-SHA256=$(run_ssh "shasum -a 256 /tmp/rep2-allinone.tar.gz | awk '{print \$1}'" | tr -d '\r')
+if [ "$REPO_MODE" = "true" ]; then
+    echo "Homebrew Tap (fukumen/tap) を登録中..."
+    run_ssh "${BREW_ENV} brew tap fukumen/tap"
+else
+    echo "Homebrew パッケージを展開します..."
 
-echo "Formulaディレクトリの作成中..."
-run_ssh "mkdir -p ~/homebrew-tap/Formula"
+    echo "SHA256の計算中..."
+    SHA256=$(run_ssh "shasum -a 256 /tmp/rep2-allinone.tar.gz | awk '{print \$1}'" | tr -d '\r')
 
-echo "rep2-allinone.rbの作成中..."
-run_ssh "sed -e 's/@@VERSION@@/${VERSION}/g' \
-    -e 's|url \"https://fukumen.github.io/rep2-allinone/macos/@@FILE_ARM64@@\"|url \"file:///tmp/rep2-allinone.tar.gz\"|' \
-    -e 's/@@SHA_ARM64@@/${SHA256}/' \
-    -e 's|url \"https://fukumen.github.io/rep2-allinone/macos/@@FILE_X86_64@@\"|url \"file:///tmp/rep2-allinone.tar.gz\"|' \
-    -e 's/@@SHA_X86_64@@/${SHA256}/' \
-    /tmp/homebrew-formula.rb.template > ~/homebrew-tap/Formula/rep2-allinone.rb"
+    echo "Formulaディレクトリの作成中..."
+    run_ssh "mkdir -p ~/homebrew-tap/Formula"
 
-echo "Homebrew Tapのセットアップ中..."
-run_ssh "${BREW_ENV} mkdir -p \"\$(brew --repository)/Library/Taps/fukumen\" && ln -sf \"\$HOME/homebrew-tap\" \"\$(brew --repository)/Library/Taps/fukumen/homebrew-tap\""
+    echo "rep2-allinone.rbの作成中..."
+    run_ssh "sed -e 's/@@VERSION@@/${VERSION}/g' \
+        -e 's|url \"https://fukumen.github.io/rep2-allinone/macos/@@FILE_ARM64@@\"|url \"file:///tmp/rep2-allinone.tar.gz\"|' \
+        -e 's/@@SHA_ARM64@@/${SHA256}/' \
+        -e 's|url \"https://fukumen.github.io/rep2-allinone/macos/@@FILE_X86_64@@\"|url \"file:///tmp/rep2-allinone.tar.gz\"|' \
+        -e 's/@@SHA_X86_64@@/${SHA256}/' \
+        /tmp/homebrew-formula.rb.template > ~/homebrew-tap/Formula/rep2-allinone.rb"
+
+    echo "Homebrew Tapのセットアップ中..."
+    run_ssh "${BREW_ENV} mkdir -p \"\$(brew --repository)/Library/Taps/fukumen\" && ln -sf \"\$HOME/homebrew-tap\" \"\$(brew --repository)/Library/Taps/fukumen/homebrew-tap\""
+fi
 
 echo "rep2-allinone をインストール..."
 run_ssh "${BREW_ENV} brew install rep2-allinone < /dev/null"
