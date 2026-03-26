@@ -151,7 +151,7 @@ tail -f $(brew --prefix)/var/lib/rep2-allinone/php-fpm.log
 sudo apt remove --purge rep2-allinone
 ```
 
-#### 設定・データ・ユーザーの削除 (任意)
+#### 設定・データの削除 (任意)
 
 ```bash
 # リポジトリ設定の削除
@@ -176,7 +176,7 @@ sudo userdel rep2
 sudo dnf remove rep2-allinone
 ```
 
-#### 設定・データ・ユーザーの削除 (任意)
+#### 設定・データの削除 (任意)
 
 ```bash
 # リポジトリ設定の削除
@@ -201,9 +201,13 @@ brew services stop rep2-allinone
 brew uninstall rep2-allinone
 ```
 
-#### 設定・データ・ディレクトリの削除 (任意)
+#### 設定・データの削除 (任意)
 
 ```bash
+# Homebrew Tap の解除
+brew untap fukumen/tap
+
+# 設定・データディレクトリの削除
 rm -rf $(brew --prefix)/etc/rep2-allinone
 rm -rf $(brew --prefix)/var/lib/rep2-allinone
 ```
