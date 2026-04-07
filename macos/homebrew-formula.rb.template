@@ -30,6 +30,7 @@ class Rep2Allinone < Formula
     (var/"lib/rep2-allinone/conf").mkpath
     (var/"lib/rep2-allinone/data").mkpath
     (var/"lib/rep2-allinone/ic").mkpath
+    (var/"lib/rep2-allinone/user_skin").mkpath
 
     unless (etc/"rep2-allinone/php-fpm.conf").exist?
       cp prefix/"conf/php-fpm.conf", etc/"rep2-allinone/php-fpm.conf"
@@ -53,6 +54,7 @@ class Rep2Allinone < Formula
     ln_sf var/"lib/rep2-allinone/conf", prefix/"p2-php/conf"
     ln_sf var/"lib/rep2-allinone/data", prefix/"p2-php/data"
     ln_sf var/"lib/rep2-allinone/ic", prefix/"p2-php/rep2/ic"
+    ln_sf var/"lib/rep2-allinone/user_skin", prefix/"p2-php/rep2/user_skin"
   end
 
   def caveats

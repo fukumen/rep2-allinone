@@ -28,7 +28,7 @@ if [ ! -f "$SECRETS_FILE" ]; then
     chmod 600 "$SECRETS_FILE"
 fi
 
-mkdir -p /var/lib/rep2-allinone/{conf,data,ic}
+mkdir -p /var/lib/rep2-allinone/{conf,data,ic,user_skin}
 
 chown -R rep2:rep2 /opt/rep2-allinone
 chown -R rep2:rep2 /var/lib/rep2-allinone
@@ -42,6 +42,7 @@ chmod 640 "$SECRETS_FILE"
 ln -sf /var/lib/rep2-allinone/conf /opt/rep2-allinone/p2-php/conf
 ln -sf /var/lib/rep2-allinone/data /opt/rep2-allinone/p2-php/data
 ln -sf /var/lib/rep2-allinone/ic /opt/rep2-allinone/p2-php/rep2/ic
+ln -sf /var/lib/rep2-allinone/user_skin /opt/rep2-allinone/p2-php/rep2/user_skin
 
 systemctl daemon-reload
 systemctl enable rep2-allinone || true
