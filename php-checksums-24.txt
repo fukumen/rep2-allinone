@@ -1,0 +1,9 @@
+c504e65e42b898f90de678c26fba2842778ecf2bbcbb7a5dd308a326f569fb31  php-8.5.5-cli-linux-x86_64.tar.gz
+69d7388bd3c821402424c2ea8e428f61785966894aff8d3b42b2d45f5274a2ba  php-8.5.5-fpm-linux-x86_64.tar.gz
+d0f849deb0b8da6a50ab399ac57ee7fc45b50f7bb8cb30e08aed4ab7542dadfa  php-8.5.5-cli-linux-aarch64.tar.gz
+f0d357a1000f42a6e1465cd5ef3d11cd6d53a1c64ab1a86bf07178a9cb396625  php-8.5.5-fpm-linux-aarch64.tar.gz
+7c0efc0d3bfdb0b9273a9f1481604904aa07a77248096f4cc4a6d92602c6f6a7  php-8.5.5-cli-macos-x86_64.tar.gz
+08e274b4527ee00220f8a793e32c06aa66ab367da274cd1c987a074fd1501fbf  php-8.5.5-fpm-macos-x86_64.tar.gz
+025d07dc55e806f98fc36871cf8b342228379b9d5ac3d739d66744a2b550de2a  php-8.5.5-cli-macos-aarch64.tar.gz
+c9e135ff47241a67b4b5bcece3a418ffa4a303c5994b929298ff6341409df7eb  php-8.5.5-fpm-macos-aarch64.tar.gz
+107f64f689eec2a0966b4d8a42f0e34e8dfa04c5097c9548e35fb951cba0a464  php-8.5.5-nts-Win32-vs17-x64.zip
