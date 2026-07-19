@@ -118,7 +118,7 @@ jobs:
           cp dist/php-checksums.txt repo/php-checksums-${{ github.run_number }}.txt 2>/dev/null || true
 
           # Prune old checksum files (keep latest 5)
-          ls -1 repo/php-checksums-*.txt 2>/dev/null | sort -Vrn | tail -n +6 | xargs -r rm -v -f
+          ls -1 repo/php-checksums-*.txt 2>/dev/null | sort -Vr | tail -n +6 | xargs -r rm -v -f
 
           # Prune old ZIP packages (keep latest 5 per architecture)
           for arch in x86_64 arm64; do
