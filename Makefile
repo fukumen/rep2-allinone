@@ -1,6 +1,6 @@
-BASE_VERSION = 1.1.7
-PHP_VERSION_DEFAULT = 8.5.8
-PHP_VERSION_WINDOWS = 8.5.8
+BASE_VERSION = 1.1.8
+PHP_VERSION_DEFAULT = 8.5.9
+PHP_VERSION_WINDOWS = 8.5.9
 
 CADDY_VERSION = 2.11.4
 COMPOSER_VERSION = 2.10.2
@@ -29,12 +29,15 @@ endif
 ARCH ?= $(HOST_ARCH_DETECTED)
 OS ?= $(HOST_OS_DETECTED)
 
+PHP_URL_WINDOWS = https://windows.php.net/downloads/releases
+PHP_URL_COMMON = https://dl.static-php.dev/v3/php-bin/common
+
 ifeq ($(OS),windows)
 PHP_VERSION = $(PHP_VERSION_WINDOWS)
-PHP_URL = https://windows.php.net/downloads/releases
+PHP_URL = $(PHP_URL_WINDOWS)
 else
 PHP_VERSION = $(PHP_VERSION_DEFAULT)
-PHP_URL = https://dl.static-php.dev/static-php-cli/common
+PHP_URL = $(PHP_URL_COMMON)
 endif
 
 COMMIT_DATE = $(shell cat dist/build_info_rep2_date 2>/dev/null || echo "unknown")
@@ -135,11 +138,11 @@ update-php-checksums:
 	@for os in linux macos windows; do \
 		if [ "$$os" = "windows" ]; then \
 			ver="$(PHP_VERSION_WINDOWS)"; \
-			url_base="https://windows.php.net/downloads/releases"; \
+			url_base="$(PHP_URL_WINDOWS)"; \
 			files="php-$$ver-nts-Win32-vs17-x64.zip"; \
 		else \
 			ver="$(PHP_VERSION_DEFAULT)"; \
-			url_base="https://dl.static-php.dev/static-php-cli/common"; \
+			url_base="$(PHP_URL_COMMON)"; \
 			if [ "$$os" = "macos" ]; then os_name="macos"; else os_name="linux"; fi; \
 			files=""; \
 			for arch in x86_64 aarch64; do \
