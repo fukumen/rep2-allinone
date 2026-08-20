@@ -1,13 +1,3 @@
-BASE_VERSION = 1.1.8
-PHP_VERSION_DEFAULT = 8.5.9
-PHP_VERSION_WINDOWS = 8.5.9
-
-CADDY_VERSION = 2.11.4
-COMPOSER_VERSION = 2.10.2
-
-REP2_REPO = https://github.com/fukumen/p2-php.git
-REP2_BRANCH = php8-merge-mbstring
-
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
     HOST_OS_DETECTED := linux
@@ -29,14 +19,25 @@ endif
 ARCH ?= $(HOST_ARCH_DETECTED)
 OS ?= $(HOST_OS_DETECTED)
 
+BASE_VERSION = 1.1.9
+PHP_VERSION = 8.5.9
+ifeq ($(OS)-$(ARCH),linux-arm64)
+PHP_VERSION = 8.5.8
+endif
+
+CADDY_VERSION = 2.11.4
+COMPOSER_VERSION = 2.10.2
+
+REP2_REPO = https://github.com/fukumen/p2-php.git
+REP2_BRANCH = php8-merge-mbstring
 PHP_URL_WINDOWS = https://windows.php.net/downloads/releases
 PHP_URL_COMMON = https://dl.static-php.dev/v3/php-bin/common
+CADDY_URL = https://github.com/caddyserver/caddy/releases/download
+CACERT_URL = https://curl.se/ca/cacert.pem
 
 ifeq ($(OS),windows)
-PHP_VERSION = $(PHP_VERSION_WINDOWS)
 PHP_URL = $(PHP_URL_WINDOWS)
 else
-PHP_VERSION = $(PHP_VERSION_DEFAULT)
 PHP_URL = $(PHP_URL_COMMON)
 endif
 
@@ -52,9 +53,6 @@ REPO_TYPE = rep2-allinone
 PKG_NAME = rep2-allinone
 DEB_DIR = dist/$(PKG_NAME)_$(DEB_VERSION)_$(ARCH)
 CONF_DEFAULT_DIR ?= /etc/default
-
-CADDY_URL = https://github.com/caddyserver/caddy/releases/download
-CACERT_URL = https://curl.se/ca/cacert.pem
 
 ifeq ($(OS),macos)
 PHP_OS = macos
@@ -126,42 +124,41 @@ PHP_CHECKSUMS = dist/php-checksums.txt
 HOST_BIN_DIR = dist/bin-$(HOST_OS_DETECTED)-$(HOST_ARCH_DETECTED)
 HOST_PHP_BIN = $(HOST_BIN_DIR)/php
 
-.PHONY: all build install install-linux install-macos install-windows deb rpm macos windows clean dist-clean update-php-checksums
+.PHONY: all build install install-linux install-macos install-windows deb rpm macos windows clean dist-clean update-php-checksums _update-php-checksum
 
 $(PHP_CHECKSUMS):
 	$(MAKE) update-php-checksums
+
+ifeq ($(OS),windows)
+PHP_CHECKSUM_FILES = php-$(PHP_VERSION)-nts-Win32-vs17-x64.zip
+else
+PHP_CHECKSUM_FILES = php-$(PHP_VERSION)-cli-$(OS)-$(PHP_ARCH).tar.gz php-$(PHP_VERSION)-fpm-$(OS)-$(PHP_ARCH).tar.gz
+endif
 
 update-php-checksums:
 	@echo "Updating $(PHP_CHECKSUMS)..."
 	@mkdir -p dist
 	@> $(PHP_CHECKSUMS).tmp
-	@for os in linux macos windows; do \
-		if [ "$$os" = "windows" ]; then \
-			ver="$(PHP_VERSION_WINDOWS)"; \
-			url_base="$(PHP_URL_WINDOWS)"; \
-			files="php-$$ver-nts-Win32-vs17-x64.zip"; \
-		else \
-			ver="$(PHP_VERSION_DEFAULT)"; \
-			url_base="$(PHP_URL_COMMON)"; \
-			if [ "$$os" = "macos" ]; then os_name="macos"; else os_name="linux"; fi; \
-			files=""; \
-			for arch in x86_64 aarch64; do \
-				files="$$files php-$$ver-cli-$$os_name-$$arch.tar.gz php-$$ver-fpm-$$os_name-$$arch.tar.gz"; \
-			done; \
-		fi; \
-		for file in $$files; do \
-			url="$$url_base/$$file"; \
-			if curl -sIL "$$url" | grep -q "HTTP/.* 200"; then \
-				echo "Fetching checksum for $$file from $$url..."; \
-				hash=$$(curl -sL "$$url" | (sha256sum 2>/dev/null || shasum -a 256) | awk '{print $$1}'); \
-				echo "$$hash  $$file" >> $(PHP_CHECKSUMS).tmp; \
-			else \
-				echo "Skipping $$file (Not Found at $$url)"; \
-			fi; \
-		done; \
-	done
+	$(MAKE) OS=linux  ARCH=amd64 _update-php-checksum
+	$(MAKE) OS=linux  ARCH=arm64 _update-php-checksum
+	$(MAKE) OS=macos  ARCH=amd64 _update-php-checksum
+	$(MAKE) OS=macos  ARCH=arm64 _update-php-checksum
+	$(MAKE) OS=windows ARCH=amd64 _update-php-checksum
 	@mv $(PHP_CHECKSUMS).tmp $(PHP_CHECKSUMS)
 	@echo "$(PHP_CHECKSUMS) updated successfully."
+
+_update-php-checksum:
+	@files="$(PHP_CHECKSUM_FILES)"; \
+	for file in $$files; do \
+		url="$(PHP_URL)/$$file"; \
+		if curl -sIL "$$url" | grep -q "HTTP/.* 200"; then \
+			echo "Fetching checksum for $$file from $$url..."; \
+			hash=$$(curl -sL "$$url" | (sha256sum 2>/dev/null || shasum -a 256) | awk '{print $$1}'); \
+			echo "$$hash  $$file" >> $(PHP_CHECKSUMS).tmp; \
+		else \
+			echo "Skipping $$file (Not Found at $$url)"; \
+		fi; \
+	done
 
 WINDOWS_DIR = dist/windows
 MACOS_DIR = dist/macos
