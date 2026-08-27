@@ -27,7 +27,7 @@ COMPOSER_VERSION = 2.10.2
 
 REP2_REPO = https://github.com/fukumen/p2-php.git
 REP2_BRANCH = php8-merge-mbstring
-PHP_URL_WINDOWS = https://windows.php.net/downloads/releases
+PHP_URL_WINDOWS = https://windows.php.net/downloads/releases/archives
 PHP_URL_COMMON = https://dl.static-php.dev/v3/php-bin/common
 CADDY_URL = https://github.com/caddyserver/caddy/releases/download
 CACERT_URL = https://curl.se/ca/cacert.pem
