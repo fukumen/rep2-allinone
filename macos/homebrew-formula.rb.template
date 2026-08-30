@@ -1,5 +1,5 @@
 class Rep2Allinone < Formula
-  desc "2chproxy.pl + p2-php + Caddy + PHP-FPM all-in-one package"
+  desc "p2-php + Caddy + PHP-FPM all-in-one package"
   homepage "https://github.com/fukumen/rep2-allinone"
   version "@@VERSION@@"
 
