@@ -20,10 +20,13 @@ ARCH ?= $(HOST_ARCH_DETECTED)
 OS ?= $(HOST_OS_DETECTED)
 
 BASE_VERSION = 1.1.10
+PHP_VERSION = 8.5.10
+ifeq ($(OS),macos)
 PHP_VERSION = 8.5.9
+endif
 
 CADDY_VERSION = 2.11.4
-COMPOSER_VERSION = 2.10.2
+COMPOSER_VERSION = 2.10.3
 
 REP2_REPO = https://github.com/fukumen/p2-php.git
 REP2_BRANCH = php8-merge-mbstring
