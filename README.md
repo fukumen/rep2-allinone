@@ -1,5 +1,13 @@
 # rep2-allinone
 
+> [!IMPORTANT]
+> 本リポジトリは [fukumen/p2-php](https://github.com/fukumen/p2-php)（`deploy/rep2-allinone`）へ統合されました。archive につき以後更新されません。
+>
+> - apt / dnf 利用者: baseurl を `fukumen.github.io/p2-php/{apt,rpm}` へ変更してください（未変更の場合、移行時点のパッケージで更新が停止し、将来 URL 自体が停止する可能性があります）。GPG 鍵は同一のため再取得は不要です
+> - Homebrew 利用者: 対応不要です（formula は publish 時に自動更新されます）。ただし versioned formula（`rep2-allinone@X`）利用者は `brew uninstall rep2-allinone@X` の後、`brew install rep2-allinone`（unversioned）へ乗り換えてください
+> - 更新通知（updatan_haahaa）有効環境: 統合後の新パッケージに更新するまで、通知が消える／誤って出ることがあります。新パッケージ適用後に解消します
+> - パッケージを自分でビルドしている場合: `fukumen/p2-php` を clone し、`deploy/rep2-allinone` で `make deb` / `make rpm` / `make macos` を実行してください
+
 PHP-FPM、Caddy (Webサーバー)、そして rep2を統合したパッケージです。対応しているのは以下の通り。
 
 - Linux Debian系 (amd64/arm64): `.deb`
